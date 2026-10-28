@@ -1,7 +1,7 @@
 {
   "id": "tanglan-companion-settings",
   "name": "主动联系与通知",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "随话题调整消息条数、自然联系后台随机调度、安卓通知分级读取与前台角色回应。",
   "author": "唐蓝",
   "entry": "https://raw.githubusercontent.com/rouzeshen/-/main/companion-settings.js",

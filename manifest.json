@@ -1,8 +1,8 @@
 {
   "id": "tanglan-watch-together",
   "name": "一起看电影",
-  "version": "1.3.0",
-  "description": "同屏陪看：扫码登录、账号状态、自动进度、AI请求计数、字幕与记忆。需配置自己的播放中转。",
+  "version": "1.5.0",
+  "description": "无账号陪看：B站按估算进度匹配预览帧并发送给视觉模型，支持画面测试；本地和直链支持真实进度与截图。",
   "author": "唐蓝",
   "entry": "https://raw.githubusercontent.com/rouzeshen/-/main/watch-together.js",
   "hash": "",

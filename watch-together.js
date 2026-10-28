@@ -42,7 +42,7 @@
   function mediaSource(raw, manual = false) {
     raw = raw.trim();
     const found = raw.match(/https?:\/\/[^\s<>"'）)]+/i);
-    if (found) raw = found[0];
+    if (found) raw = found[0].replace(/[，。；！、》】]+$/, '');
     let url;
     try { url = new URL(raw); } catch { throw Error('请填写完整的 https 视频直链或 B 站 / YouTube 链接。'); }
     if (!['https:', 'http:'].includes(url.protocol)) throw Error('只支持 http / https 视频地址。');
@@ -53,7 +53,7 @@
       if (!/^[\w-]{11}$/.test(id || '')) throw Error('未识别到 YouTube 视频编号，请使用完整视频链接。');
       return { kind: 'embed', url: url.href, embed: `https://www.youtube.com/embed/${id}`, provider: 'YouTube' };
     }
-    if (host === 'b23.tv') { if (manual) throw Error('原站手动播放需要展开后的 BV 完整链接；短链接可用自动播放中转解析。'); return { kind: 'bili-link', url: url.href, provider: 'B站' }; }
+    if (host === 'b23.tv') { url.protocol = 'https:'; if (url.port || !/^\/[0-9A-Za-z_-]{1,64}\/?$/.test(url.pathname)) throw Error('这个B站短链接格式不正确。'); return { kind: 'bili-link', url: url.href, shortLink: true, provider: 'B站' }; }
     if (host === 'bilibili.com' || host.endsWith('.bilibili.com')) {
       const bv = url.pathname.match(/\/(BV[\w]+)/i)?.[1];
       if (!bv) throw Error('此版支持 B 站 BV 视频链接；番剧、会员片请在原站观看并使用手动进度。');
@@ -184,7 +184,7 @@
 <section><div class="row"><h2 class="grow">今晚看什么</h2><span class="badge" data-n="mode">还没开场</span></div><div class="status" data-n="setupStatus" role="status"></div>
 <label class="field"><span>影片名称</span><input data-n="title" placeholder="给今晚的电影起个名字" maxlength="160"></label>
 <div class="row"><button data-a="pick">选择本地影片</button><input data-n="file" type="file" accept="video/*,.mkv" hidden><button data-a="url">打开视频链接</button><button data-a="openEmbed">尝试真实同步（中转）</button></div>
-<label class="field"><span>视频直链 / B 站 / YouTube</span><input data-n="url" type="url" placeholder="https://…" autocomplete="off"></label>
+<label class="field"><span>视频链接 / B站短链或分享文字 / YouTube</span><input data-n="url" type="url" placeholder="可直接粘贴B站整段分享文字" autocomplete="off"></label>
 <div class="stage" data-n="stage"><video data-n="video" controls playsinline preload="metadata" hidden></video><iframe data-n="embed" title="原站视频播放器" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" hidden></iframe><div class="empty" data-n="empty">选一部影片，再邀请身边的人。<br><small>本地影片只在这台设备播放。</small></div><div class="subtitle" data-n="subtitle"></div><div class="dm" data-n="dm"></div><button class="fullscreen-exit" data-a="exitFullscreen" aria-label="退出播放器全屏" hidden>✕ 退出全屏</button></div>
 <div class="status" data-n="sourceStatus" role="status"></div>
 <div class="row"><button data-a="external" hidden>去原站打开 ↗</button><button data-a="fullscreen">全屏</button><button data-a="manual">切换手动进度</button><button data-a="subs">载入字幕</button><input data-n="subsFile" type="file" accept=".srt,.vtt,.ass,.ssa" hidden><button data-a="clearSubs">移除字幕</button></div>
@@ -444,6 +444,7 @@
     }
     function setSource(src, restore = false) {
       closeMessageEditor(false);
+      action('url').disabled = action('openEmbed').disabled = false;
       epoch++; busy = false; action('cancel').hidden = true; action('send').disabled = action('ask').disabled = false;
       selectedSource = null; stopMedia(); selectedSource = src;
       if (!restore) { currentId = uid(); aiRequests = 0; aiCountPartial = false; messages = []; notes = []; remembered = {}; resumeAt = 0; cues = []; $('scene').value = ''; savedTicket = ''; $('ticket').replaceChildren(); $('subsFile').dataset.name = ''; $('subtitle').textContent = ''; $('offset').value = '0'; renderChat(); }
@@ -481,8 +482,67 @@
       } catch(e) { if(e.name === 'AbortError') throw Error('播放中转连接超时或已取消。'); throw e; }
       finally { clearTimeout(timer); timers.delete(timer); networkControllers.delete(controller); }
     }
-    async function prepareSource(raw, manual = false) {
-      const source = mediaSource(raw,manual); if(source.kind !== 'bili-link') return source;
+    async function shortLinkResponse(url, method, valid, timeout) {
+      const target = new URL(url);
+      if (target.protocol !== 'https:' || target.hostname !== 'b23.tv' || target.port || target.username || target.password) throw Error('短链请求地址不受支持。');
+      const controller = new AbortController(); networkControllers.add(controller);
+      let timer, onAbort;
+      try {
+        const aborted = new Promise((_, reject) => {
+          onAbort = () => reject(Error('短链接解析超时或已取消，请重试。'));
+          controller.signal.addEventListener('abort', onAbort, { once: true });
+          timer = setTimeout(() => controller.abort(), Math.max(1, timeout)); timers.add(timer);
+        });
+        const http = getNativeHTTP();
+        const request = http ? http.request({ url: target.href, method, headers: { Accept: 'text/html' }, responseType: 'text', disableRedirects: true, connectTimeout: 8000, readTimeout: 8000 }) : fetch(target.href, { method, credentials: 'omit', redirect: 'manual', signal: controller.signal });
+        const response = await Promise.race([request, aborted]);
+        if (!valid()) return null;
+        const headers = response.headers || {}, location = headers instanceof Headers ? headers.get('Location') : headers[Object.keys(headers).find(key => key.toLowerCase() === 'location')];
+        return { status: Number(response.status), location: typeof location === 'string' ? location : '', url: typeof response.url === 'string' ? response.url : '' };
+      } finally {
+        clearTimeout(timer); timers.delete(timer); controller.signal.removeEventListener('abort', onAbort); networkControllers.delete(controller);
+      }
+    }
+    async function expandBiliShort(raw, valid) {
+      let link = new URL(raw); link.hash = '';
+      const seen = new Set(), deadline = Date.now() + 20000;
+      say('正在展开B站短链接…', false, 'sourceStatus');
+      for (let hop = 0; hop <= 4; hop++) {
+        if (!valid()) return null;
+        if (link.protocol !== 'https:' || link.username || link.password || link.port) throw Error('短链接跳转到了不受支持的地址。');
+        if (link.hostname === 'bilibili.com' || link.hostname.endsWith('.bilibili.com')) {
+          const bvid = link.pathname.match(/^\/video\/(BV[0-9A-Za-z]{10})(?:\/|$)/)?.[1];
+          if (!bvid) throw Error('这个短链没有指向BV视频，请使用普通视频分享链接。');
+          const page = Number(link.searchParams.get('p') || 1);
+          const canonical = new URL('https://www.bilibili.com/video/' + bvid);
+          canonical.searchParams.set('p', String(Number.isInteger(page) && page > 0 && page <= 1000 ? page : 1));
+          return canonical.href;
+        }
+        if (link.hostname !== 'b23.tv' || !/^\/[0-9A-Za-z_-]{1,64}\/?$/.test(link.pathname)) throw Error('短链接跳转到了不受支持的地址。');
+        if (hop === 4) throw Error('短链接跳转次数过多，请使用完整BV链接。');
+        if (seen.has(link.href)) throw Error('这个短链接发生了循环跳转，请换一个分享链接。');
+        seen.add(link.href);
+        const remaining = () => Math.max(1, Math.min(10000, deadline - Date.now()));
+        if (Date.now() >= deadline) throw Error('短链接解析超时，请重试。');
+        let response;
+        try {
+          response = await shortLinkResponse(link.href, 'HEAD', valid, remaining());
+          if (response && [405, 501].includes(response.status)) response = await shortLinkResponse(link.href, 'GET', valid, remaining());
+        } catch (error) {
+          if (!valid()) return null;
+          throw Error('短链接暂时无法展开：' + cap(error.message, 100) + '。可重试或使用完整BV链接。');
+        }
+        if (!response || !valid()) return null;
+        if ([301, 302, 303, 307, 308].includes(response.status) && response.location) link = new URL(response.location, link);
+        else if (response.status >= 200 && response.status < 300 && response.url && response.url !== link.href) link = new URL(response.url);
+        else throw Error('短链接暂时无法展开' + (response.status ? '（HTTP ' + response.status + '）' : '，当前环境无法读取跳转地址') + '。请重试或使用完整BV链接。');
+      }
+      throw Error('短链接跳转次数过多，请使用完整BV链接。');
+    }
+    async function prepareSource(raw, manual = false, valid = () => alive) {
+      let source = mediaSource(raw,manual);
+      if (source.shortLink) { const expanded = await expandBiliShort(source.url, valid); if (!expanded || !valid()) return null; source = mediaSource(expanded, manual); }
+      if(source.kind !== 'bili-link') return source;
       say('正在连接B站独立播放器…',false,'sourceStatus');
       const { body,base } = await bridgeRequest('resolve',{url:source.url});
       let media; try { media = new URL(body.streamUrl); } catch { throw Error('中转没有返回可播放地址。'); }
@@ -494,14 +554,15 @@
     async function openURL(raw, manual = false, keepSession = false) {
       const load = ++loadEpoch; if(busy) cancel(); action('url').disabled = true; action('openEmbed').disabled = true;
       try {
-        await persist(); const at = time(), prepared = await prepareSource(raw,manual);
+        await persist(); const at = time(), prepared = await prepareSource(raw,manual,() => alive && load === loadEpoch);
         if(!alive || load !== loadEpoch) return;
         if(keepSession) resumeAt = at;
         setSource(prepared,keepSession);
+        if (prepared.provider === 'B站') $('url').value = prepared.url;
         if(prepared.title) $('title').value = prepared.title;
         else if(!$('title').value.trim()) $('title').value = prepared.provider ? prepared.provider+' 视频' : decodeURIComponent(new URL(prepared.url).pathname.split('/').pop() || '今晚的影片');
         await persist(); renderHistory();
-      } finally { if(alive && load === loadEpoch) action('url').disabled = action('openEmbed').disabled = false; }
+      } catch (error) { if (!alive || load !== loadEpoch) return; throw error; } finally { if(alive && load === loadEpoch) action('url').disabled = action('openEmbed').disabled = false; }
     }
     let previewGeneration=0,previewMeta=null,previewIdentity=null,previewBitmaps=new Map(),visionFailure='';
     function clearShotPreview() {
@@ -851,7 +912,7 @@ const CR=C6['length']>0x1,CD=C6['map'](Cw=>Cw['name']),CL=CP['map'](Cw=>('me'===
       const load = ++loadEpoch; restoring = true;
       try {
         let prepared = null;
-        if (r.source?.url && r.source.kind !== 'local') prepared = await prepareSource(r.source.url,r.source.kind === 'embed');
+        if (r.source?.url && r.source.kind !== 'local') prepared = await prepareSource(r.source.url,r.source.kind === 'embed',() => alive && load === loadEpoch);
         if(!alive || load !== loadEpoch) return;
         currentId = r.id; messages = r.messages || []; cues = r.cues || []; notes = r.notes || []; remembered = r.remembered || {};
         aiRequests = Math.max(0,Number(r.aiRequests)||0); aiCountPartial = r.aiCountPartial === true || !Number.isFinite(r.aiRequests);
@@ -1043,7 +1104,7 @@ const CR=C6['length']>0x1,CD=C6['map'](Cw=>Cw['name']),CL=CP['map'](Cw=>('me'===
     finally { if (alive) { ready = true; for (const el of root.querySelectorAll('button,input,textarea,select')) el.disabled = false; } }
   }
   const plugin = {
-    id: ID, name: '一起看电影', version: '1.5.9',
+    id: ID, name: '一起看电影', version: '1.6.0',
     apps: [{ id: ID + '-room', name: '一起看电影', icon: 'movie', iconImage: '', mount, async unmount(container) { const state = instances.get(container); if (state) await state.dispose(); container.replaceChildren(); } }]
   };
   if (!window.RochePlugin?.register) throw Error('请通过 Roche 插件管理安装此文件。');

@@ -1,0 +1,19 @@
+{
+  "id": "tanglan-watch-together",
+  "name": "一起看电影",
+  "version": "1.0.1",
+  "description": "和 Roche 角色一起看影片：字幕、画面输入、多角色短评、续播与观影票根。",
+  "author": "唐蓝",
+  "entry": "https://raw.githubusercontent.com/rouzeshen/-/main/watch-together.js",
+  "hash": "",
+  "permissions": [
+    "persona:read",
+    "character:read",
+    "memory:read",
+    "memory:write",
+    "worldbook:read",
+    "ai:chat",
+    "storage",
+    "ui"
+  ]
+}

@@ -1,8 +1,8 @@
 {
   "id": "tanglan-watch-together",
   "name": "一起看电影",
-  "version": "1.1.0",
-  "description": "同屏放映室：上方视频、中间聊天、底部输入，支持角色人设与记忆、字幕、续播和票根。",
+  "version": "1.3.0",
+  "description": "同屏陪看：扫码登录、账号状态、自动进度、AI请求计数、字幕与记忆。需配置自己的播放中转。",
   "author": "唐蓝",
   "entry": "https://raw.githubusercontent.com/rouzeshen/-/main/watch-together.js",
   "hash": "",

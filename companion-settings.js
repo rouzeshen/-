@@ -1,7 +1,7 @@
-/* Roche companion settings 0.1.0. Notification reactions run only while this page is visible. */
+/* Roche companion settings 0.2.2. Notification reactions run only while this page is visible. */
 (() => {
 'use strict';
-const ID='tanglan-companion-settings', VERSION='0.2.1';
+const ID='tanglan-companion-settings', VERSION='0.2.2';
 const instances=new WeakMap();
 const cut=(v,n=1200)=>String(v??'').slice(0,n);
 const make=(tag,text)=>{const e=document.createElement(tag);if(text!==undefined)e.textContent=text;return e;};
@@ -15,12 +15,16 @@ async function mount(container,roche){
   let alive=true,busy=false,epoch=0,events=[],apps=[],targets=[],config={enabled:false,apps:{}},permission=false,connected=false;
   let prefs={conversationId:'',allowAI:false,autoForeground:false,dailyLimit:20},usage={day:'',count:0,last:{}};
   const native=nativePlugin(),host=window.RocheCompanionHost;
+  const ownedStyles={height:'100%',minHeight:'0',minWidth:'0',overflow:'hidden',display:'flex',flexDirection:'column'};
+  const previousStyles=Object.fromEntries(Object.keys(ownedStyles).map(k=>[k,container.style[k]]));
+  Object.assign(container.style,ownedStyles);
+  const restoreLayout=()=>{for(const k of Object.keys(ownedStyles))if(container.style[k]===ownedStyles[k])container.style[k]=previousStyles[k];};
   const root=make('div');root.className='roche-companion';
   root.innerHTML=`<style>
-.roche-companion{--bg:#151719;--card:#202326;--line:#3b3f43;--fg:#eeeae2;--muted:#b1b1ad;--accent:#d5c5a1;background:var(--bg);color:var(--fg);padding:16px;min-height:100%;font:15px/1.6 system-ui,sans-serif;box-sizing:border-box;overflow:auto;overflow-wrap:anywhere}
+.roche-companion{--bg:#151719;--card:#202326;--line:#3b3f43;--fg:#eeeae2;--muted:#b1b1ad;--accent:#d5c5a1;background:var(--bg);color:var(--fg);padding:16px;height:100%;max-height:100dvh;min-height:0;min-width:0;width:100%;flex:1 1 0;font:15px/1.6 system-ui,sans-serif;box-sizing:border-box;overflow-x:hidden;overflow-y:auto;overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;overflow-wrap:anywhere}
 .roche-companion *{box-sizing:border-box}.roche-companion header,.roche-companion .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.roche-companion header{justify-content:space-between}.roche-companion h1{font-size:20px;margin:0}.roche-companion h2,.roche-companion summary{font-size:17px;font-weight:650;margin:0 0 12px}.roche-companion section{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin:16px 0}.roche-companion label{display:block;margin:12px 0}.roche-companion input:not([type=checkbox]),.roche-companion select{display:block;width:100%;margin-top:6px;border:1px solid var(--line);border-radius:10px;background:#171a1d;color:var(--fg);padding:10px;min-height:44px;font:inherit}.roche-companion input[type=checkbox]{accent-color:var(--accent);width:21px;height:21px;vertical-align:middle;margin-right:8px}.roche-companion button{border:1px solid var(--line);border-radius:12px;background:#303438;color:var(--fg);padding:10px 15px;font:inherit;min-height:44px}.roche-companion button.primary{background:var(--accent);color:#171719}.roche-companion button:disabled{opacity:.5}.roche-companion .muted{color:var(--muted);font-size:13px}.roche-companion .notice{color:#e0cba0}.roche-companion .error{color:#f2a9a2}.roche-companion .apps{max-height:320px;overflow:auto}.roche-companion .app{border-top:1px solid var(--line);padding:9px 0;display:grid;grid-template-columns:minmax(0,1fr) 145px;gap:10px;align-items:center}.roche-companion .app small{display:block;color:var(--muted);font-size:11px}.roche-companion .app select{margin:0;padding:7px;font-size:13px}.roche-companion .event{padding:12px 0;border-top:1px solid var(--line);white-space:pre-wrap}.roche-companion .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.roche-companion .grid label{min-width:0}.roche-companion [role=status]{white-space:pre-wrap}.roche-companion [hidden]{display:none!important}@media(max-width:360px){.roche-companion .app{grid-template-columns:1fr}.roche-companion{padding:10px}}
 </style>
-<header><button data-a="back">返回</button><h1>主动联系与通知</h1><span class="muted">0.2.1</span></header>
+<header><button data-a="back">返回</button><h1>主动联系与通知</h1><span class="muted">0.2.2</span></header>
 <p data-n="status" role="status"></p>
 <section><h2>和谁相伴</h2><label>对应的私聊会话<select data-n="target"></select></label><p class="muted">用户身份和通知回应跟随这个会话；群聊暂不接入。</p></section>
 <section><h2>消息条数</h2><label>回复节奏<select data-n="bubbleMode"><option value="fixed">沿用 Roche 原条数设置</option><option value="natural">自然条数：随话题展开</option></select></label><p class="muted">日常偏向2—4条，聊深入了可展开到8—16条，不要求凑数；内容完整比条数更重要。开启后接管原固定范围。</p><div class="grid"><label><input data-n="bubbleMinOn" type="checkbox">设最少条数<input data-n="bubbleMin" type="number" min="1" max="40" value="2"></label><label><input data-n="bubbleMaxOn" type="checkbox" checked>设最多条数<input data-n="bubbleMax" type="number" min="1" max="40" value="20"></label></div><p class="muted">不开最少限制就不凑数；不开最多偏好时仍提示最多40条，避免异常长回复。多条气泡来自一次生成，具体长度仍受模型输出上限影响。</p><button class="primary" data-a="saveBubbles">保存消息节奏</button><p class="muted" data-n="bubbleState"></p></section><section><h2>自然联系</h2><p class="notice" data-n="contactState">选择自然联系并保存后，会检测抱脸版本，再启用后台随机调度。</p><p data-n="fixed" class="muted"></p>
@@ -144,7 +148,7 @@ async function mount(container,roche){
   btn('back').onclick=()=>roche.ui.closeApp();
   $('target').onchange=()=>run(async()=>{invalidate();prefs.conversationId=$('target').value;await savePrefs();loadDraft();});
   $('search').oninput=renderApps;
-  btn('saveBubbles').onclick=()=>run(async()=>{if(!host?.saveBubblePolicy||!chosen())throw Error('请先安装0.2.1本体');const min=Number($('bubbleMin').value),max=Number($('bubbleMax').value);if(!Number.isInteger(min)||min<1||min>40||!Number.isInteger(max)||max<1||max>40||($('bubbleMinOn').checked&&$('bubbleMaxOn').checked&&max<min))throw Error('条数请填1—40，同时开启上下限时最多不能少于最少');btn('saveBubbles').disabled=true;try{await host.saveBubblePolicy(chosen().id,{enabled:$('bubbleMode').value==='natural',minEnabled:$('bubbleMinOn').checked,min,maxEnabled:$('bubbleMaxOn').checked,max});loadDraft();status('消息节奏已保存。下次生成会使用新规则，已有消息不改动。');}finally{if(alive)btn('saveBubbles').disabled=false;}});
+  btn('saveBubbles').onclick=()=>run(async()=>{if(!host?.saveBubblePolicy||!chosen())throw Error(!host?'当前本体未加载配套核心，消息条数功能尚不可用；需要按当前工程版本重新适配。':'请先选择一个私聊会话');const min=Number($('bubbleMin').value),max=Number($('bubbleMax').value);if(!Number.isInteger(min)||min<1||min>40||!Number.isInteger(max)||max<1||max>40||($('bubbleMinOn').checked&&$('bubbleMaxOn').checked&&max<min))throw Error('条数请填1—40，同时开启上下限时最多不能少于最少');btn('saveBubbles').disabled=true;try{await host.saveBubblePolicy(chosen().id,{enabled:$('bubbleMode').value==='natural',minEnabled:$('bubbleMinOn').checked,min,maxEnabled:$('bubbleMaxOn').checked,max});loadDraft();status('消息节奏已保存。下次生成会使用新规则，已有消息不改动。');}finally{if(alive)btn('saveBubbles').disabled=false;}});
   btn('saveContact').onclick=()=>run(async()=>{if(!host?.getBackendState||!host?.checkBackend||!chosen())throw Error('需要安装0.2.0本体并选择会话');const d=draftInput();btn('saveContact').disabled=true;try{const saved=await host.saveDraft(chosen().id,d);status(saved.activation==='ready'&&saved.requestedMode==='natural'?'自然联系已保存并提交后台调度。':'已恢复原模式。');loadDraft();}finally{if(alive)btn('saveContact').disabled=false;}});
   btn('backendStatus').onclick=()=>run(async()=>{if(!host?.getBackendState||!chosen())throw Error('请先安装0.2.0本体');const task=await host.getBackendState(chosen().id);if(!task){status('这个会话当前没有自然联系任务。');return;}const reasons={'waiting':'等待检查','quiet':'勿扰时段','daily-limit':'今日额度已满','recent-conversation':'刚刚聊过，稍后再检查','waiting-for-you':'等你回复，暂不继续联系','quiet-this-round':'这一轮保持安静','generating':'正在生成','conversation-changed':'聊天有更新，本轮已取消','no-topic':'这轮没有自然话题','sent':'已发送','disabled':'已关闭','generation-failed':'模型请求失败，稍后重试','context-unavailable':'暂时无法核对会话状态'};status(`${task.active?'任务已开启':'任务已停止'} · ${reasons[task.reason]||task.reason}\n下次检查：${new Date(task.nextAt).toLocaleString()}\n今日请求：${task.dailyCalls}/${task.dailyLimit}。检查不一定请求模型或发消息。`);});
   btn('preview').onclick=()=>run(async()=>{const d=draftInput();const intervals=Array.from({length:5},()=>Math.floor(d.minMinutes+Math.random()*(d.maxMinutes-d.minMinutes+1)));$('preview').textContent='随机间隔示例：'+intervals.join('、')+' 分钟。仅演示，不创建任务，也不请求 AI。';});
@@ -158,7 +162,7 @@ async function mount(container,roche){
   btn('clear').onclick=()=>run(async()=>{invalidate();if(native)await native.clearEvents();status('暂存通知已清空。');});
   const resume=()=>{if(!document.hidden)run(refresh);};document.addEventListener('visibilitychange',resume);
   const timer=setInterval(()=>{if(alive&&!document.hidden&&!busy)run(readEvents);},10000);
-  instances.set(container,()=>{alive=false;epoch++;clearInterval(timer);document.removeEventListener('visibilitychange',resume);events=[];container.replaceChildren();});
+  instances.set(container,()=>{alive=false;epoch++;clearInterval(timer);document.removeEventListener('visibilitychange',resume);events=[];container.replaceChildren();restoreLayout();});
   try{
     prefs={...prefs,...await roche.storage.get('notification-prefs-v1')};usage={...usage,...await roche.storage.get('notification-usage-v1')};if(!alive)return;
     usage.count=Number.isFinite(Number(usage.count))?Math.max(0,Math.floor(Number(usage.count))):0;
@@ -168,7 +172,7 @@ async function mount(container,roche){
     const chars=await roche.character.list();if(!alive)return;
     for(const target of targets){const char=(chars||[]).find(c=>String(c.id)===String(target.contactId));const option=make('option',(char?.handle||char?.name||target.title)+' · '+target.id.slice(-6));option.value=target.id;$('target').append(option);}
     if(targets.some(t=>t.id===prefs.conversationId))$('target').value=prefs.conversationId;
-    if(!targets.length){const option=make('option','请先安装修改后的本体，并建立私聊会话');option.value='';$('target').append(option);}
+    if(!targets.length){const option=make('option','未检测到配套会话接口，请核对本体工程版本');option.value='';$('target').append(option);}
     $('allowAI').checked=prefs.allowAI;$('auto').checked=prefs.autoForeground;loadDraft();count();renderEvents();await refresh();
   }catch(error){status('初始化失败：'+cut(error.message,200),true);}
 }

@@ -172,7 +172,7 @@ async function mount(container,roche){
     const chars=await roche.character.list();if(!alive)return;
     for(const target of targets){const char=(chars||[]).find(c=>String(c.id)===String(target.contactId));const option=make('option',(char?.handle||char?.name||target.title)+' · '+target.id.slice(-6));option.value=target.id;$('target').append(option);}
     if(targets.some(t=>t.id===prefs.conversationId))$('target').value=prefs.conversationId;
-    if(!targets.length){const option=make('option',host?'请先在 Tropicana 导入或建立一个私聊会话':'未检测到配套会话接口，请核对本体工程版本');option.value='';$('target').append(option);}
+    if(!targets.length){const option=make('option',host?'请先在 Roche 导入或建立一个私聊会话':'未检测到配套会话接口，请核对本体工程版本');option.value='';$('target').append(option);}
     $('allowAI').checked=prefs.allowAI;$('auto').checked=prefs.autoForeground;loadDraft();count();renderEvents();await refresh();
   }catch(error){status('初始化失败：'+cut(error.message,200),true);}
 }

@@ -1,8 +1,8 @@
 {
   "id": "tanglan-watch-together",
   "name": "一起看电影",
-  "version": "1.5.0",
-  "description": "无账号陪看：B站按估算进度匹配预览帧并发送给视觉模型，支持画面测试；本地和直链支持真实进度与截图。",
+  "version": "1.5.1",
+  "description": "无账号陪看：优先尝试手机原生HTTP获取B站预览帧，支持画面测试、同屏聊天和AI请求计数。",
   "author": "唐蓝",
   "entry": "https://raw.githubusercontent.com/rouzeshen/-/main/watch-together.js",
   "hash": "",

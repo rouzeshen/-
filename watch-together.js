@@ -1,4 +1,4 @@
-/* Roche 一起看电影 1.0.1 · 原生 JS，无外部依赖 */
+/* Roche 一起看电影 1.0.2 · 原生 JS，无外部依赖 */
 (() => {
   "use strict";
   const ID = "tanglan-watch-together";
@@ -139,7 +139,7 @@
     }
     return { kind: "direct", url: url.href };
   }
-  const css = ` .roche-plugin-watch{--bg:#10141c;--panel:#1b222e;--line:#303a49;--ink:#eef0f5;--muted:#a5b1c2;--accent:#e8c699;display:flex;flex-direction:column;background:var(--bg);color:var(--ink);width:100%;height:100%;min-width:0;min-height:0;font:14px/1.55 system-ui,sans-serif;isolation:isolate;color-scheme:dark;overflow:hidden} .roche-plugin-watch *{box-sizing:border-box}.roche-plugin-watch button,.roche-plugin-watch input,.roche-plugin-watch textarea,.roche-plugin-watch select{font:inherit;color:inherit}.roche-plugin-watch button{cursor:pointer;border:1px solid var(--line);background:#222c3b;border-radius:12px;padding:9px 13px;touch-action:manipulation}.roche-plugin-watch button:disabled{opacity:.45;cursor:default}.roche-plugin-watch button.primary{background:var(--accent);color:#282018;border-color:var(--accent);font-weight:650}.roche-plugin-watch button:hover{filter:brightness(1.1)}.roche-plugin-watch button:focus-visible,.roche-plugin-watch input:focus-visible,.roche-plugin-watch textarea:focus-visible,.roche-plugin-watch select:focus-visible{outline:2px solid var(--accent);outline-offset:2px} .roche-plugin-watch input:not([type=checkbox]),.roche-plugin-watch textarea,.roche-plugin-watch select{background:#121923;border:1px solid var(--line);border-radius:10px;padding:10px;width:100%;min-width:0}.roche-plugin-watch input[type=checkbox]{accent-color:var(--accent)}.roche-plugin-watch textarea{resize:vertical;min-height:66px}.roche-plugin-watch h1{font-size:18px;margin:0}.roche-plugin-watch h2{font-size:15px;margin:0 0 12px}.roche-plugin-watch p{margin:7px 0}.roche-plugin-watch small,.roche-plugin-watch .muted{color:var(--muted);font-size:12px}.roche-plugin-watch header{flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--line);gap:12px}.roche-plugin-watch .scroll{flex:1;overflow:auto;min-height:0;padding:18px;padding-bottom:max(20px,env(safe-area-inset-bottom));overscroll-behavior:contain}.roche-plugin-watch .columns{display:block;width:100%;min-width:0}.roche-plugin-watch section{background:transparent;border:0;border-bottom:1px solid var(--line);border-radius:0;padding:16px 0;min-width:0;margin:0}.roche-plugin-watch label.field{display:block;margin:12px 0}.roche-plugin-watch label.field>span{display:block;margin-bottom:6px;font-size:12px;color:var(--muted)}.roche-plugin-watch .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.roche-plugin-watch .grow{flex:1;min-width:110px}.roche-plugin-watch .badge{display:inline-flex;padding:3px 9px;border-radius:20px;background:#303744;color:var(--accent);font-size:12px}.roche-plugin-watch .stage{position:relative;background:#07090d;aspect-ratio:16/9;border-radius:12px;overflow:hidden;display:flex;align-items:center;justify-content:center}.roche-plugin-watch video,.roche-plugin-watch iframe{width:100%;height:100%;border:0;display:block}.roche-plugin-watch .empty{color:var(--muted);text-align:center;padding:22px}.roche-plugin-watch .subtitle{position:absolute;bottom:43px;left:5%;width:90%;white-space:pre-line;text-align:center;color:white;font-size:clamp(14px,2vw,21px);text-shadow:0 1px 4px #000;background:#0008;border-radius:6px;pointer-events:none}.roche-plugin-watch .subtitle:empty{display:none}.roche-plugin-watch .dm{position:absolute;top:12px;left:10px;right:10px;pointer-events:none;display:flex;gap:8px;flex-wrap:wrap}.roche-plugin-watch .dm span{background:#000b;padding:3px 10px;border-radius:16px;font-size:13px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.roche-plugin-watch .status{font-size:12px;color:var(--muted);min-height:22px;padding:8px 0}.roche-plugin-watch .status.error{color:#ffb4a8}.roche-plugin-watch .people{display:flex;flex-wrap:wrap;gap:8px;max-height:220px;overflow:auto;padding:2px}.roche-plugin-watch .person{display:flex;align-items:center;gap:7px;background:#121923;border:1px solid var(--line);padding:8px 10px;border-radius:12px}.roche-plugin-watch .avatar{height:27px;width:27px;object-fit:cover;border-radius:50%}.roche-plugin-watch .chat{height:330px;overflow:auto;display:flex;flex-direction:column;gap:10px;padding:8px 0}.roche-plugin-watch .bubble{padding:10px 12px;background:#283447;border-radius:12px;white-space:pre-wrap;overflow-wrap:anywhere}.roche-plugin-watch .bubble.user{background:#39382f;margin-left:25px}.roche-plugin-watch .bubble small{display:block;margin-bottom:3px;color:var(--accent)}.roche-plugin-watch .ticket{border:1px dashed #7d6d55;border-radius:12px;background:#252722;padding:12px;margin-top:10px}.roche-plugin-watch .history{display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid var(--line);padding:12px 0}.roche-plugin-watch .history strong{display:block;overflow-wrap:anywhere}.roche-plugin-watch .link{color:var(--accent)}.roche-plugin-watch details{border-top:1px solid var(--line);padding-top:12px;margin-top:12px}.roche-plugin-watch summary{cursor:pointer;color:var(--muted)}.roche-plugin-watch .check{display:flex;gap:8px;align-items:flex-start;margin:10px 0}.roche-plugin-watch [hidden]{display:none!important}@media(max-width:760px){.roche-plugin-watch .columns{display:block}.roche-plugin-watch .scroll{padding:12px}.roche-plugin-watch header{padding:10px 12px}.roche-plugin-watch .chat{height:260px}.roche-plugin-watch section{padding:12px}.roche-plugin-watch .stage{border-radius:8px}} `;
+  const css = ` .roche-plugin-watch{--bg:#10141c;--panel:#1b222e;--line:#303a49;--ink:#eef0f5;--muted:#a5b1c2;--accent:#e8c699;display:flex;flex-direction:column;background:var(--bg);color:var(--ink);width:100%;height:100%;min-width:0;min-height:0;font:14px/1.55 system-ui,sans-serif;isolation:isolate;color-scheme:dark;overflow:hidden} .roche-plugin-watch *{box-sizing:border-box}.roche-plugin-watch button,.roche-plugin-watch input,.roche-plugin-watch textarea,.roche-plugin-watch select{font:inherit;color:inherit}.roche-plugin-watch button{cursor:pointer;border:1px solid var(--line);background:#222c3b;border-radius:12px;padding:9px 13px;touch-action:manipulation}.roche-plugin-watch button:disabled{opacity:.45;cursor:default}.roche-plugin-watch button.primary{background:var(--accent);color:#282018;border-color:var(--accent);font-weight:650}.roche-plugin-watch button:hover{filter:brightness(1.1)}.roche-plugin-watch button:focus-visible,.roche-plugin-watch input:focus-visible,.roche-plugin-watch textarea:focus-visible,.roche-plugin-watch select:focus-visible{outline:2px solid var(--accent);outline-offset:2px} .roche-plugin-watch input:not([type=checkbox]),.roche-plugin-watch textarea,.roche-plugin-watch select{background:#121923;border:1px solid var(--line);border-radius:10px;padding:10px;width:100%;min-width:0}.roche-plugin-watch input[type=checkbox]{accent-color:var(--accent)}.roche-plugin-watch textarea{resize:vertical;min-height:66px}.roche-plugin-watch h1{font-size:18px;margin:0}.roche-plugin-watch h2{font-size:15px;margin:0 0 12px}.roche-plugin-watch p{margin:7px 0}.roche-plugin-watch small,.roche-plugin-watch .muted{color:var(--muted);font-size:12px}.roche-plugin-watch header{flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--line);gap:12px}.roche-plugin-watch .scroll{flex:1;overflow:auto;min-height:0;padding:18px;padding-bottom:max(20px,env(safe-area-inset-bottom));overscroll-behavior:contain}.roche-plugin-watch .columns{display:block;width:100%;min-width:0}.roche-plugin-watch section{background:transparent;border:0;border-bottom:1px solid var(--line);border-radius:0;padding:16px 0;min-width:0;margin:0}.roche-plugin-watch label.field{display:block;margin:12px 0}.roche-plugin-watch label.field>span{display:block;margin-bottom:6px;font-size:12px;color:var(--muted)}.roche-plugin-watch .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.roche-plugin-watch .grow{flex:1;min-width:110px}.roche-plugin-watch .badge{display:inline-flex;padding:3px 9px;border-radius:20px;background:#303744;color:var(--accent);font-size:12px}.roche-plugin-watch .stage{position:relative;background:#07090d;aspect-ratio:16/9;border-radius:12px;overflow:hidden;display:flex;align-items:center;justify-content:center}.roche-plugin-watch video,.roche-plugin-watch iframe{width:100%;height:100%;border:0;display:block}.roche-plugin-watch .empty{color:var(--muted);text-align:center;padding:22px}.roche-plugin-watch .fullscreen-exit{position:absolute;z-index:20;top:max(12px,env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right));min-height:44px;padding:10px 14px;background:#121923eb;color:#fff;border:1px solid #ffffff66;box-shadow:0 2px 8px #0008}.roche-plugin-watch .stage:fullscreen{width:100%;height:100%;aspect-ratio:auto;border-radius:0}.roche-plugin-watch .stage:-webkit-full-screen{width:100%;height:100%;aspect-ratio:auto;border-radius:0}.roche-plugin-watch video{object-fit:contain}.roche-plugin-watch .subtitle{position:absolute;bottom:43px;left:5%;width:90%;white-space:pre-line;text-align:center;color:white;font-size:clamp(14px,2vw,21px);text-shadow:0 1px 4px #000;background:#0008;border-radius:6px;pointer-events:none}.roche-plugin-watch .subtitle:empty{display:none}.roche-plugin-watch .dm{position:absolute;top:12px;left:10px;right:10px;pointer-events:none;display:flex;gap:8px;flex-wrap:wrap}.roche-plugin-watch .dm span{background:#000b;padding:3px 10px;border-radius:16px;font-size:13px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.roche-plugin-watch .status{font-size:12px;color:var(--muted);min-height:22px;padding:8px 0}.roche-plugin-watch .status.error{color:#ffb4a8}.roche-plugin-watch .people{display:flex;flex-wrap:wrap;gap:8px;max-height:220px;overflow:auto;padding:2px}.roche-plugin-watch .person{display:flex;align-items:center;gap:7px;background:#121923;border:1px solid var(--line);padding:8px 10px;border-radius:12px}.roche-plugin-watch .avatar{height:27px;width:27px;object-fit:cover;border-radius:50%}.roche-plugin-watch .chat{height:330px;overflow:auto;display:flex;flex-direction:column;gap:10px;padding:8px 0}.roche-plugin-watch .bubble{padding:10px 12px;background:#283447;border-radius:12px;white-space:pre-wrap;overflow-wrap:anywhere}.roche-plugin-watch .bubble.user{background:#39382f;margin-left:25px}.roche-plugin-watch .bubble small{display:block;margin-bottom:3px;color:var(--accent)}.roche-plugin-watch .ticket{border:1px dashed #7d6d55;border-radius:12px;background:#252722;padding:12px;margin-top:10px}.roche-plugin-watch .history{display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid var(--line);padding:12px 0}.roche-plugin-watch .history strong{display:block;overflow-wrap:anywhere}.roche-plugin-watch .link{color:var(--accent)}.roche-plugin-watch details{border-top:1px solid var(--line);padding-top:12px;margin-top:12px}.roche-plugin-watch summary{cursor:pointer;color:var(--muted)}.roche-plugin-watch .check{display:flex;gap:8px;align-items:flex-start;margin:10px 0}.roche-plugin-watch [hidden]{display:none!important}@media(max-width:760px){.roche-plugin-watch .columns{display:block}.roche-plugin-watch .scroll{padding:12px}.roche-plugin-watch header{padding:10px 12px}.roche-plugin-watch .chat{height:260px}.roche-plugin-watch section{padding:12px}.roche-plugin-watch .stage{border-radius:8px}} `;
   async function mount(container, roche) {
     if (instances.has(container)) await instances.get(container).dispose();
     let alive = true,
@@ -174,7 +174,7 @@
       disposers = [];
     const root = document.createElement("div");
     root.className = "roche-plugin-watch";
-    root.innerHTML = `<style>${css}</style> <header><button data-a="back" aria-label="返回 Roche">‹ 返回</button><div class="grow"><h1>一起看电影</h1><small>灯暗下来，和 TA 坐一会儿。</small></div><span class="badge">放映室</span></header> <div class="scroll"><div class="columns"><main> <section><div class="row"><h2 class="grow">今晚看什么</h2><span class="badge" data-n="mode">还没开场</span></div> <label class="field"><span>影片名称</span><input data-n="title" placeholder="给今晚的电影起个名字" maxlength="160"></label> <div class="row"><button data-a="pick">选择本地影片</button><input data-n="file" type="file" accept="video/*,.mkv" hidden><button data-a="url">打开视频链接</button></div> <label class="field"><span>视频直链 / B 站 / YouTube</span><input data-n="url" type="url" placeholder="https://…" autocomplete="off"></label> <div class="stage" data-n="stage"><video data-n="video" controls playsinline preload="metadata" hidden></video><iframe data-n="embed" title="原站视频播放器" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" hidden></iframe><div class="empty" data-n="empty">选一部影片，再邀请身边的人。<br><small>本地影片只在这台设备播放。</small></div><div class="subtitle" data-n="subtitle"></div><div class="dm" data-n="dm"></div></div> <div class="status" data-n="sourceStatus" role="status"></div> <div class="row"><button data-a="external" hidden>去原站打开 ↗</button><button data-a="fullscreen">全屏</button><button data-a="manual">切换手动进度</button><button data-a="subs">载入字幕</button><input data-n="subsFile" type="file" accept=".srt,.vtt,.ass,.ssa" hidden><button data-a="clearSubs">移除字幕</button></div> <div data-n="manualBox" hidden><label class="field"><span>同步已看到的进度（分:秒 或 时:分:秒）</span><input data-n="manualTime" value="00:00" inputmode="decimal"></label><button data-a="sync">同步进度</button><p class="muted">原站播放器的进度和画面无法自动读取；暂停后填一下进度，字幕就能跟上。也可只填片名，在其他 App 播放。</p></div> <details><summary>字幕与画面设置</summary><label class="field"><span>字幕偏移秒数（正数表示字幕晚出现）</span><input data-n="offset" type="number" value="0" min="-600" max="600"></label><label class="check"><input data-n="vision" type="checkbox"><span>让 TA 看画面<small style="display:block">开启后，请求时会把最近 30 秒内最多 3 张截图交给 Roche 当前模型，需支持图片输入。跨域视频可能无法截图。</small></span></label><label class="check"><input data-n="danmaku" type="checkbox" checked><span>在播放器上显示角色的短评</span></label></details> </section> <section><h2>坐在你旁边的人</h2><input data-n="search" placeholder="搜索角色" aria-label="搜索角色"><div class="people" data-n="people" style="margin-top:10px"></div><p class="muted" data-n="peopleStatus"></p> <label class="check"><input data-n="memory" type="checkbox" checked><span>读取所选会话记忆（用户身份跟随该会话）</span></label><details><summary>选择角色对应的记忆会话 / 世界书</summary><div data-n="conversationPick"></div><label class="check"><input data-n="world" type="checkbox"><span>读取所选会话的全局与挂载世界书</span></label><p class="muted">用户面具跟随所选会话；未选会话时使用全局面具，只读取全局世界书。观影内容默认保存在插件内。</p></details></section> <section><div class="row"><h2 class="grow">我们的观影记录</h2><button data-a="ticket">生成票根</button></div><div data-n="ticket"></div><div data-n="history"></div><details><summary>备份与清理</summary><div class="row"><button data-a="export">导出记录</button><button data-a="import">导入记录</button><input data-n="importFile" type="file" accept="application/json,.json" hidden><button data-a="clear">清空观影记录</button></div><p class="muted">本地视频本体不随记录保存；再次进入时需要重新选择同一影片。卸载插件会清理插件内数据。</p></details></section> </main><aside><section><div class="row"><h2 class="grow">靠近一点，聊两句</h2><span data-n="time" class="badge">00:00</span></div> <label class="field"><span>TA 主动开口</span><select data-n="auto"><option value="off">手动 · 点一下才说</option><option value="smart">智能 · 暂停或转场时</option><option value="180">每 3 分钟</option><option value="300">每 5 分钟</option><option value="600">每 10 分钟</option><option value="1200">每 20 分钟</option></select></label> <p class="muted">智能模式在暂停后、可读取的画面转场或长时间安静时触发；只在此页打开时运行。每次开口都会使用 Roche 当前 AI 配置。</p><div class="chat" data-n="chat" role="log" aria-live="polite"></div><textarea data-n="input" placeholder="跟 TA 说句话…（Enter 发送，Shift+Enter 换行）" maxlength="3000"></textarea><div class="row" style="margin-top:10px"><button class="primary" data-a="send">发送</button><button data-a="ask">听听 TA 怎么说</button><button data-a="cancel" hidden>停止等待</button></div><div class="status" data-n="status" role="status"></div> <label class="field"><span>当前画面补充 / 你的观影笔记</span><textarea data-n="scene" placeholder="例如：主角刚刚在车站和朋友分别。没有字幕时也可在这里补充。" maxlength="2400"></textarea></label><button data-a="note">记下这一刻</button><p class="muted">角色只知道已看到的字幕、可读取画面和你提供的描述；不会假装已经看完整部电影，也不会提前剧透。</p></section></aside></div></div>`;
+    root.innerHTML = `<style>${css}</style> <header><button data-a="back" aria-label="返回 Roche">‹ 返回</button><div class="grow"><h1>一起看电影</h1><small>灯暗下来，和 TA 坐一会儿。</small></div><span class="badge">放映室</span></header> <div class="scroll"><div class="columns"><main> <section><div class="row"><h2 class="grow">今晚看什么</h2><span class="badge" data-n="mode">还没开场</span></div> <label class="field"><span>影片名称</span><input data-n="title" placeholder="给今晚的电影起个名字" maxlength="160"></label> <div class="row"><button data-a="pick">选择本地影片</button><input data-n="file" type="file" accept="video/*,.mkv" hidden><button data-a="url">打开视频链接</button></div> <label class="field"><span>视频直链 / B 站 / YouTube</span><input data-n="url" type="url" placeholder="https://…" autocomplete="off"></label> <div class="stage" data-n="stage"><video data-n="video" controls playsinline preload="metadata" hidden></video><iframe data-n="embed" title="原站视频播放器" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" hidden></iframe><div class="empty" data-n="empty">选一部影片，再邀请身边的人。<br><small>本地影片只在这台设备播放。</small></div><div class="subtitle" data-n="subtitle"></div><div class="dm" data-n="dm"></div><button class="fullscreen-exit" data-a="exitFullscreen" aria-label="退出播放器全屏" hidden>✕ 退出全屏</button></div> <div class="status" data-n="sourceStatus" role="status"></div> <div class="row"><button data-a="external" hidden>去原站打开 ↗</button><button data-a="fullscreen">全屏</button><button data-a="manual">切换手动进度</button><button data-a="subs">载入字幕</button><input data-n="subsFile" type="file" accept=".srt,.vtt,.ass,.ssa" hidden><button data-a="clearSubs">移除字幕</button></div> <div data-n="manualBox" hidden><label class="field"><span>同步已看到的进度（分:秒 或 时:分:秒）</span><input data-n="manualTime" value="00:00" inputmode="decimal"></label><button data-a="sync">同步进度</button><p class="muted">原站播放器的进度和画面无法自动读取；暂停后填一下进度，字幕就能跟上。也可只填片名，在其他 App 播放。</p></div> <details><summary>字幕与画面设置</summary><label class="field"><span>字幕偏移秒数（正数表示字幕晚出现）</span><input data-n="offset" type="number" value="0" min="-600" max="600"></label><label class="check"><input data-n="vision" type="checkbox"><span>让 TA 看画面<small style="display:block">开启后，请求时会把最近 30 秒内最多 3 张截图交给 Roche 当前模型，需支持图片输入。跨域视频可能无法截图。</small></span></label><label class="check"><input data-n="danmaku" type="checkbox" checked><span>在播放器上显示角色的短评</span></label></details> </section> <section><h2>坐在你旁边的人</h2><input data-n="search" placeholder="搜索角色" aria-label="搜索角色"><div class="people" data-n="people" style="margin-top:10px"></div><p class="muted" data-n="peopleStatus"></p> <label class="check"><input data-n="memory" type="checkbox" checked><span>读取所选会话记忆（用户身份跟随该会话）</span></label><details><summary>选择角色对应的记忆会话 / 世界书</summary><div data-n="conversationPick"></div><label class="check"><input data-n="world" type="checkbox"><span>读取所选会话的全局与挂载世界书</span></label><p class="muted">用户面具跟随所选会话；未选会话时使用全局面具，只读取全局世界书。观影内容默认保存在插件内。</p></details></section> <section><div class="row"><h2 class="grow">我们的观影记录</h2><button data-a="ticket">生成票根</button></div><div data-n="ticket"></div><div data-n="history"></div><details><summary>备份与清理</summary><div class="row"><button data-a="export">导出记录</button><button data-a="import">导入记录</button><input data-n="importFile" type="file" accept="application/json,.json" hidden><button data-a="clear">清空观影记录</button></div><p class="muted">本地视频本体不随记录保存；再次进入时需要重新选择同一影片。卸载插件会清理插件内数据。</p></details></section> </main><aside><section><div class="row"><h2 class="grow">靠近一点，聊两句</h2><span data-n="time" class="badge">00:00</span></div> <label class="field"><span>TA 主动开口</span><select data-n="auto"><option value="off">手动 · 点一下才说</option><option value="smart">智能 · 暂停或转场时</option><option value="180">每 3 分钟</option><option value="300">每 5 分钟</option><option value="600">每 10 分钟</option><option value="1200">每 20 分钟</option></select></label> <p class="muted">智能模式在暂停后、可读取的画面转场或长时间安静时触发；只在此页打开时运行。每次开口都会使用 Roche 当前 AI 配置。</p><div class="chat" data-n="chat" role="log" aria-live="polite"></div><textarea data-n="input" placeholder="跟 TA 说句话…（Enter 发送，Shift+Enter 换行）" maxlength="3000"></textarea><div class="row" style="margin-top:10px"><button class="primary" data-a="send">发送</button><button data-a="ask">听听 TA 怎么说</button><button data-a="cancel" hidden>停止等待</button></div><div class="status" data-n="status" role="status"></div> <label class="field"><span>当前画面补充 / 你的观影笔记</span><textarea data-n="scene" placeholder="例如：主角刚刚在车站和朋友分别。没有字幕时也可在这里补充。" maxlength="2400"></textarea></label><button data-a="note">记下这一刻</button><p class="muted">角色只知道已看到的字幕、可读取画面和你提供的描述；不会假装已经看完整部电影，也不会提前剧透。</p></section></aside></div></div>`;
     // The host already provides the full App canvas: use one native vertical page.
     const main = root.querySelector("main"),
       aside = root.querySelector("aside");
@@ -203,6 +203,43 @@
       timers.add(t);
       return t;
     };
+    let nativeVideoFullscreen = false;
+    const fullscreenElement = () =>
+      document.fullscreenElement || document.webkitFullscreenElement;
+    const ownsFullscreen = () => {
+      const el = fullscreenElement();
+      return !!el && ($("stage") === el || $("stage").contains(el));
+    };
+    function syncFullscreen() {
+      if (!alive) return;
+      // An overlay can be drawn only when our wrapper itself owns fullscreen.
+      action("exitFullscreen").hidden = fullscreenElement() !== $("stage");
+      action("fullscreen").textContent =
+        ownsFullscreen() || nativeVideoFullscreen ? "退出全屏" : "全屏";
+    }
+    async function leaveFullscreen() {
+      if (ownsFullscreen()) {
+        const exit = document.exitFullscreen || document.webkitExitFullscreen;
+        if (!exit) throw Error("此播放器需要使用手机返回手势退出全屏。");
+        await exit.call(document);
+      } else if (
+        nativeVideoFullscreen &&
+        typeof video.webkitExitFullscreen === "function"
+      ) {
+        video.webkitExitFullscreen();
+      }
+      syncFullscreen();
+    }
+    on(document, "fullscreenchange", syncFullscreen);
+    on(document, "webkitfullscreenchange", syncFullscreen);
+    on(video, "webkitbeginfullscreen", () => {
+      nativeVideoFullscreen = true;
+      syncFullscreen();
+    });
+    on(video, "webkitendfullscreen", () => {
+      nativeVideoFullscreen = false;
+      syncFullscreen();
+    });
     const selected = () =>
       [...$("people").querySelectorAll("input:checked")]
         .map((x) => chars.find((c) => text(c.id) === x.value))
@@ -864,12 +901,26 @@
         if (a === "external" && selectedSource?.url)
           window.open(selectedSource.url, "_blank", "noopener,noreferrer");
         if (a === "fullscreen") {
-          if ($("stage").requestFullscreen)
-            await $("stage").requestFullscreen();
-          else if (!video.hidden && video.webkitEnterFullscreen)
-            video.webkitEnterFullscreen();
-          else say("当前浏览器不支持插件内全屏。");
+          if (ownsFullscreen() || nativeVideoFullscreen)
+            await leaveFullscreen();
+          else {
+            const enter =
+              $("stage").requestFullscreen ||
+              $("stage").webkitRequestFullscreen;
+            if (enter) {
+              await enter.call($("stage"));
+              syncFullscreen();
+            } else if (!video.hidden && video.webkitEnterFullscreen) {
+              video.webkitEnterFullscreen();
+              say(
+                "当前使用系统视频全屏，请用播放器的完成/返回按钮退出。",
+                false,
+                "sourceStatus"
+              );
+            } else say("当前浏览器不支持插件内全屏。", true, "sourceStatus");
+          }
         }
+        if (a === "exitFullscreen") await leaveFullscreen();
         if (a === "manual") {
           resumeAt = time();
           setSource({ kind: "manual", url: "" }, true);
@@ -1040,7 +1091,15 @@
           renderHistory();
           say("观影记录已清空。");
         }
-      })().catch((err) => say(cap(err.message || err), true));
+      })().catch((err) =>
+        say(
+          cap(err.message || err),
+          true,
+          ["url", "fullscreen", "exitFullscreen"].includes(a)
+            ? "sourceStatus"
+            : "status"
+        )
+      );
     });
     on($("file"), "change", async () => {
       const f = $("file").files?.[0];
@@ -1346,7 +1405,8 @@
     disposers.push(() => clearInterval(tick));
     const dispose = async () => {
       if (!alive) return;
-      const saving = persist();
+      const saving = persist(),
+        leaving = leaveFullscreen().catch(() => {});
       alive = false;
       epoch++;
       loadEpoch++;
@@ -1357,7 +1417,7 @@
       stopMedia();
       root.remove();
       instances.delete(container);
-      await saving.catch(() => {});
+      await Promise.allSettled([saving, leaving]);
     };
     instances.set(container, { dispose });
     try {
@@ -1422,7 +1482,7 @@
   const plugin = {
     id: ID,
     name: "一起看电影",
-    version: "1.0.1",
+    version: "1.0.2",
     apps: [
       {
         id: ID + "-room",

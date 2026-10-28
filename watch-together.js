@@ -1,4 +1,4 @@
-/* Roche 一起看电影 1.5.0 · 无登录版 */
+/* Roche 一起看电影 1.5.1 · 无登录版 */
 (() => {
   "use strict";
   const ID = "tanglan-watch-together";
@@ -183,7 +183,7 @@
       disposers = [];
     const root = document.createElement("div");
     root.className = "roche-plugin-watch";
-    root.innerHTML = `<style>${css}${roomCSS}</style> <header><button data-a="back" aria-label="返回 Roche">‹ 返回</button><div class="grow"><h1>一起看电影</h1><small>灯暗下来，和 TA 坐一会儿。</small></div><span class="badge">放映室</span></header> <div class="scroll"><div class="columns"><main> <section><div class="row"><h2 class="grow">今晚看什么</h2><span class="badge" data-n="mode">还没开场</span></div><div class="status" data-n="setupStatus" role="status"></div> <label class="field"><span>影片名称</span><input data-n="title" placeholder="给今晚的电影起个名字" maxlength="160"></label> <div class="row"><button data-a="pick">选择本地影片</button><input data-n="file" type="file" accept="video/*,.mkv" hidden><button data-a="url">打开视频链接</button><button data-a="openEmbed">尝试真实同步（中转）</button></div> <label class="field"><span>视频直链 / B 站 / YouTube</span><input data-n="url" type="url" placeholder="https://…" autocomplete="off"></label> <div class="stage" data-n="stage"><video data-n="video" controls playsinline preload="metadata" hidden></video><iframe data-n="embed" title="原站视频播放器" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" hidden></iframe><div class="empty" data-n="empty">选一部影片，再邀请身边的人。<br><small>本地影片只在这台设备播放。</small></div><div class="subtitle" data-n="subtitle"></div><div class="dm" data-n="dm"></div><button class="fullscreen-exit" data-a="exitFullscreen" aria-label="退出播放器全屏" hidden>✕ 退出全屏</button></div> <div class="status" data-n="sourceStatus" role="status"></div> <div class="row"><button data-a="external" hidden>去原站打开 ↗</button><button data-a="fullscreen">全屏</button><button data-a="manual">切换手动进度</button><button data-a="subs">载入字幕</button><input data-n="subsFile" type="file" accept=".srt,.vtt,.ass,.ssa" hidden><button data-a="clearSubs">移除字幕</button></div> <div data-n="manualBox" hidden><label class="field"><span>同步已看到的进度（分:秒 或 时:分:秒）</span><input data-n="manualTime" value="00:00" inputmode="decimal"></label><button data-a="sync">同步进度</button><p class="muted">原站播放器的进度和画面无法自动读取；暂停后填一下进度，字幕就能跟上。也可只填片名，在其他 App 播放。</p></div> <details><summary>B站自动播放中转</summary><label class="field"><span>播放中转地址（先部署包内的 bili-sync-worker.js）</span><input data-n="bridgeURL" type="url" placeholder="https://你的播放中转.workers.dev/" autocomplete="off"></label><label class="field"><span>中转访问口令（与 Worker 的 BRIDGE_TOKEN 一致）</span><input data-n="bridgeToken" type="password" placeholder="至少16个字符；使用你已设置的中转口令" autocomplete="off"></label><button data-a="bridgeTest">检查中转连接</button><div class="status" data-n="bridgeStatus" role="status"></div><p class="muted">免登录播放仅支持公开、可匿名获取的单段 MP4。中转连接测试只检查服务在线；实际取流可能被 B站拒绝。原站播放可自动开始估算计时，暂停、拖动和倍速需校正，本地影片和可播放直链自动读取真实进度。</p></details><details><summary>字幕与画面设置</summary><label class="field"><span>字幕偏移秒数（正数表示字幕晚出现）</span><input data-n="offset" type="number" value="0" min="-600" max="600"></label><label class="check"><input data-n="vision" type="checkbox"><span>让 TA 看画面<small style="display:block">原站B站按估算进度取预览帧；本地与直链取实际截图。请求时最多3张，需模型支持图片；取图可能被接口或跨域限制。</small></span></label><div class="row"><button data-a="testVision">测试画面</button></div><p class="status" data-n="visionStatus" role="status">尚未读取画面。</p><img data-n="visionPreview" alt="本轮提供给AI的最后一张预览画面" style="max-width:240px;width:100%;border-radius:8px" hidden><label class="check"><input data-n="danmaku" type="checkbox" checked><span>在播放器上显示角色的短评</span></label></details> </section> <section><h2>坐在你旁边的人</h2><input data-n="search" placeholder="搜索角色" aria-label="搜索角色"><div class="people" data-n="people" style="margin-top:10px"></div><p class="muted" data-n="peopleStatus"></p> <label class="check"><input data-n="memory" type="checkbox" checked><span>读取所选会话记忆（用户身份跟随该会话）</span></label><details><summary>选择角色对应的记忆会话 / 世界书</summary><div data-n="conversationPick"></div><label class="check"><input data-n="world" type="checkbox"><span>读取所选会话的全局与挂载世界书</span></label><p class="muted">用户面具跟随所选会话；未选会话时使用全局面具，只读取全局世界书。观影内容默认保存在插件内。</p></details></section> <section><div class="row"><h2 class="grow">我们的观影记录</h2><button data-a="ticket">生成票根</button></div><div data-n="ticket"></div><div data-n="history"></div><details><summary>备份与清理</summary><div class="row"><button data-a="export">导出记录</button><button data-a="import">导入记录</button><input data-n="importFile" type="file" accept="application/json,.json" hidden><button data-a="clear">清空观影记录</button></div><p class="muted">本地视频本体不随记录保存；再次进入时需要重新选择同一影片。卸载插件会清理插件内数据。</p></details></section> </main><aside><section><div class="row"><h2 class="grow">靠近一点，聊两句</h2><span data-n="time" class="badge">00:00</span></div> <label class="field"><span>TA 主动开口</span><select data-n="auto"><option value="off">手动 · 点一下才说</option><option value="smart">智能 · 暂停或转场时</option><option value="180">每 3 分钟</option><option value="300">每 5 分钟</option><option value="600">每 10 分钟</option><option value="1200">每 20 分钟</option></select></label> <p class="muted">智能模式在暂停后、可读取的画面转场或长时间安静时触发；只在此页打开时运行。每次开口都会使用 Roche 当前 AI 配置。</p><div class="chat" data-n="chat" role="log" aria-live="polite"></div><textarea data-n="input" placeholder="跟 TA 说句话…（Enter 发送，Shift+Enter 换行）" maxlength="3000"></textarea><div class="row" style="margin-top:10px"><button class="primary" data-a="send">发送</button><button data-a="ask">听听 TA 怎么说</button><button data-a="cancel" hidden>停止等待</button></div><div class="status" data-n="status" role="status"></div> <label class="field"><span>当前画面补充 / 你的观影笔记</span><textarea data-n="scene" placeholder="例如：主角刚刚在车站和朋友分别。没有字幕时也可在这里补充。" maxlength="2400"></textarea></label><button data-a="note">记下这一刻</button><p class="muted">角色只知道已看到的字幕、可读取画面和你提供的描述；不会假装已经看完整部电影，也不会提前剧透。</p></section></aside></div></div>`;
+    root.innerHTML = `<style>${css}${roomCSS}</style> <header><button data-a="back" aria-label="返回 Roche">‹ 返回</button><div class="grow"><h1>一起看电影</h1><small>灯暗下来，和 TA 坐一会儿。</small></div><span class="badge">放映室</span></header> <div class="scroll"><div class="columns"><main> <section><div class="row"><h2 class="grow">今晚看什么</h2><span class="badge" data-n="mode">还没开场</span></div><div class="status" data-n="setupStatus" role="status"></div> <label class="field"><span>影片名称</span><input data-n="title" placeholder="给今晚的电影起个名字" maxlength="160"></label> <div class="row"><button data-a="pick">选择本地影片</button><input data-n="file" type="file" accept="video/*,.mkv" hidden><button data-a="url">打开视频链接</button><button data-a="openEmbed">尝试真实同步（中转）</button></div> <label class="field"><span>视频直链 / B 站 / YouTube</span><input data-n="url" type="url" placeholder="https://…" autocomplete="off"></label> <div class="stage" data-n="stage"><video data-n="video" controls playsinline preload="metadata" hidden></video><iframe data-n="embed" title="原站视频播放器" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" hidden></iframe><div class="empty" data-n="empty">选一部影片，再邀请身边的人。<br><small>本地影片只在这台设备播放。</small></div><div class="subtitle" data-n="subtitle"></div><div class="dm" data-n="dm"></div><button class="fullscreen-exit" data-a="exitFullscreen" aria-label="退出播放器全屏" hidden>✕ 退出全屏</button></div> <div class="status" data-n="sourceStatus" role="status"></div> <div class="row"><button data-a="external" hidden>去原站打开 ↗</button><button data-a="fullscreen">全屏</button><button data-a="manual">切换手动进度</button><button data-a="subs">载入字幕</button><input data-n="subsFile" type="file" accept=".srt,.vtt,.ass,.ssa" hidden><button data-a="clearSubs">移除字幕</button></div> <div data-n="manualBox" hidden><label class="field"><span>同步已看到的进度（分:秒 或 时:分:秒）</span><input data-n="manualTime" value="00:00" inputmode="decimal"></label><button data-a="sync">同步进度</button><p class="muted">原站播放器的进度和画面无法自动读取；暂停后填一下进度，字幕就能跟上。也可只填片名，在其他 App 播放。</p></div> <details><summary>B站自动播放中转</summary><label class="field"><span>播放中转地址（先部署包内的 bili-sync-worker.js）</span><input data-n="bridgeURL" type="url" placeholder="https://你的播放中转.workers.dev/" autocomplete="off"></label><label class="field"><span>中转访问口令（与 Worker 的 BRIDGE_TOKEN 一致）</span><input data-n="bridgeToken" type="password" placeholder="至少16个字符；使用你已设置的中转口令" autocomplete="off"></label><button data-a="bridgeTest">检查中转连接</button><div class="status" data-n="bridgeStatus" role="status"></div><p class="muted">免登录播放仅支持公开、可匿名获取的单段 MP4。中转连接测试只检查服务在线；实际取流可能被 B站拒绝。原站播放可自动开始估算计时，暂停、拖动和倍速需校正，本地影片和可播放直链自动读取真实进度。</p></details><details><summary>字幕与画面设置</summary><label class="field"><span>字幕偏移秒数（正数表示字幕晚出现）</span><input data-n="offset" type="number" value="0" min="-600" max="600"></label><label class="check"><input data-n="vision" type="checkbox"><span>让 TA 看画面<small style="display:block">原站B站按估算进度取预览帧；本地与直链取实际截图。请求时最多3张，需模型支持图片；取图可能被接口或跨域限制。</small></span></label><div class="row"><button data-a="testVision">测试画面</button></div><p class="status" data-n="visionStatus" role="status">尚未读取画面。测试时会显示请求通道。</p><img data-n="visionPreview" alt="本轮提供给AI的最后一张预览画面" style="max-width:240px;width:100%;border-radius:8px" hidden><label class="check"><input data-n="danmaku" type="checkbox" checked><span>在播放器上显示角色的短评</span></label></details> </section> <section><h2>坐在你旁边的人</h2><input data-n="search" placeholder="搜索角色" aria-label="搜索角色"><div class="people" data-n="people" style="margin-top:10px"></div><p class="muted" data-n="peopleStatus"></p> <label class="check"><input data-n="memory" type="checkbox" checked><span>读取所选会话记忆（用户身份跟随该会话）</span></label><details><summary>选择角色对应的记忆会话 / 世界书</summary><div data-n="conversationPick"></div><label class="check"><input data-n="world" type="checkbox"><span>读取所选会话的全局与挂载世界书</span></label><p class="muted">用户面具跟随所选会话；未选会话时使用全局面具，只读取全局世界书。观影内容默认保存在插件内。</p></details></section> <section><div class="row"><h2 class="grow">我们的观影记录</h2><button data-a="ticket">生成票根</button></div><div data-n="ticket"></div><div data-n="history"></div><details><summary>备份与清理</summary><div class="row"><button data-a="export">导出记录</button><button data-a="import">导入记录</button><input data-n="importFile" type="file" accept="application/json,.json" hidden><button data-a="clear">清空观影记录</button></div><p class="muted">本地视频本体不随记录保存；再次进入时需要重新选择同一影片。卸载插件会清理插件内数据。</p></details></section> </main><aside><section><div class="row"><h2 class="grow">靠近一点，聊两句</h2><span data-n="time" class="badge">00:00</span></div> <label class="field"><span>TA 主动开口</span><select data-n="auto"><option value="off">手动 · 点一下才说</option><option value="smart">智能 · 暂停或转场时</option><option value="180">每 3 分钟</option><option value="300">每 5 分钟</option><option value="600">每 10 分钟</option><option value="1200">每 20 分钟</option></select></label> <p class="muted">智能模式在暂停后、可读取的画面转场或长时间安静时触发；只在此页打开时运行。每次开口都会使用 Roche 当前 AI 配置。</p><div class="chat" data-n="chat" role="log" aria-live="polite"></div><textarea data-n="input" placeholder="跟 TA 说句话…（Enter 发送，Shift+Enter 换行）" maxlength="3000"></textarea><div class="row" style="margin-top:10px"><button class="primary" data-a="send">发送</button><button data-a="ask">听听 TA 怎么说</button><button data-a="cancel" hidden>停止等待</button></div><div class="status" data-n="status" role="status"></div> <label class="field"><span>当前画面补充 / 你的观影笔记</span><textarea data-n="scene" placeholder="例如：主角刚刚在车站和朋友分别。没有字幕时也可在这里补充。" maxlength="2400"></textarea></label><button data-a="note">记下这一刻</button><p class="muted">角色只知道已看到的字幕、可读取画面和你提供的描述；不会假装已经看完整部电影，也不会提前剧透。</p></section></aside></div></div>`;
     // The host already provides the full App canvas: use one native vertical page.
     const main = root.querySelector("main"),
       aside = root.querySelector("aside");
@@ -991,7 +991,145 @@
         throw Error("没有可用的预览时间索引。");
       return { index, columns, rows, width, height, sheets, images, direct };
     }
+    let previewTransport = "尚未请求",
+      nativeHttpInstance = null;
+    function getNativeHTTP() {
+      const capacitor = window.Capacitor;
+      if (
+        !capacitor ||
+        typeof capacitor.isNativePlatform !== "function" ||
+        !capacitor.isNativePlatform()
+      )
+        return null;
+      if (nativeHttpInstance) return nativeHttpInstance;
+      try {
+        const existing = capacitor.Plugins?.CapacitorHttp;
+        if (existing && typeof existing.request === "function")
+          return (nativeHttpInstance = existing);
+        if (
+          typeof capacitor.registerPlugin === "function" &&
+          capacitor.isPluginAvailable?.("CapacitorHttp")
+        ) {
+          const instance = capacitor.registerPlugin("CapacitorHttp");
+          if (instance && typeof instance.request === "function")
+            return (nativeHttpInstance = instance);
+        }
+      } catch {}
+      return null;
+    }
+    async function nativePreviewFetch(http, url, options = {}) {
+      const target = new URL(url);
+      if (
+        target.protocol !== "https:" ||
+        target.username ||
+        target.password ||
+        !(
+          target.hostname === "api.bilibili.com" ||
+          target.hostname === "hdslb.com" ||
+          target.hostname.endsWith(".hdslb.com")
+        )
+      )
+        throw Error("原生画面请求地址不受支持。");
+      if (
+        target.hostname === "api.bilibili.com" &&
+        !["/x/player/pagelist", "/x/player/videoshot"].includes(target.pathname)
+      )
+        throw Error("原生画面请求路径不受支持。");
+      const controller = new AbortController();
+      networkControllers.add(controller);
+      let timer, onAbort;
+      previewTransport = "手机原生 HTTP";
+      try {
+        const aborted = new Promise((_, reject) => {
+          onAbort = () =>
+            reject(
+              Error(alive ? "手机原生取图超时或已取消。" : "插件已关闭。")
+            );
+          controller.signal.addEventListener("abort", onAbort, { once: true });
+          timer = setTimeout(() => controller.abort(), 20000);
+          timers.add(timer);
+        });
+        const response = await Promise.race([
+          http.request({
+            url: target.href,
+            method: "GET",
+            headers: {
+              Accept: options.image
+                ? "image/jpeg,image/png,image/webp"
+                : "application/json",
+              "User-Agent":
+                "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
+              Referer: "https://www.bilibili.com/",
+            },
+            responseType: options.image ? "arraybuffer" : "json",
+            connectTimeout: 10000,
+            readTimeout: 15000,
+            disableRedirects: true,
+          }),
+          aborted,
+        ]);
+        const status = Number(response?.status);
+        if (status < 200 || status >= 300 || !Number.isInteger(status))
+          throw Error("手机原生画面接口返回 HTTP " + (status || "未知") + "。");
+        if (options.image) {
+          const headers = response.headers || {},
+            name = Object.keys(headers).find(
+              (k) => k.toLowerCase() === "content-type"
+            ),
+            type = String(name ? headers[name] : "");
+          if (!/^image\/(jpeg|png|webp)(?:;|$)/i.test(type))
+            throw Error("手机原生接口没有返回图片。");
+          if (
+            typeof response.data !== "string" ||
+            response.data.length > 11184816
+          )
+            throw Error("手机原生预览图格式无效或超过8MB。");
+          let raw;
+          try {
+            raw = atob(response.data);
+          } catch {
+            throw Error("手机原生图片解码失败。");
+          }
+          if (raw.length > 8388608) throw Error("手机原生预览图超过8MB。");
+          return new Blob([Uint8Array.from(raw, (c) => c.charCodeAt(0))], {
+            type,
+          });
+        }
+        let body = response.data;
+        if (typeof body === "string") {
+          try {
+            body = JSON.parse(body);
+          } catch {
+            throw Error("手机原生画面接口未返回JSON。");
+          }
+        }
+        if (body?.code !== 0 || !body.data)
+          throw Error("手机原生画面接口没有有效数据。");
+        return body.data;
+      } finally {
+        clearTimeout(timer);
+        timers.delete(timer);
+        controller.signal.removeEventListener("abort", onAbort);
+        networkControllers.delete(controller);
+      }
+    }
+
     async function previewFetch(url, options = {}) {
+      const target = new URL(url),
+        nativeHTTP = getNativeHTTP();
+      if (
+        nativeHTTP &&
+        (target.hostname === "api.bilibili.com" ||
+          target.hostname === "hdslb.com" ||
+          target.hostname.endsWith(".hdslb.com"))
+      )
+        return nativePreviewFetch(nativeHTTP, url, options);
+      previewTransport =
+        target.hostname === "api.bilibili.com" ||
+        target.hostname === "hdslb.com" ||
+        target.hostname.endsWith(".hdslb.com")
+          ? "手机浏览器直连"
+          : "已配置的画面中转";
       const controller = new AbortController();
       networkControllers.add(controller);
       const timer = setTimeout(
@@ -1061,6 +1199,7 @@
             "手机直连画面接口失败；可配置画面中转再测试。" +
               cap(error?.message, 100)
           );
+        previewTransport = "已配置的画面中转";
         const result = await bridgeRequest("storyboard", {
           bvid: id.bvid,
           p: id.page,
@@ -1142,7 +1281,12 @@
         generation === previewGeneration &&
         selectedSource === source &&
         $("vision").checked;
-      visionMessage("正在获取 B站预览帧…");
+      visionMessage(
+        "正在获取 B站预览帧…" +
+          (getNativeHTTP()
+            ? "优先使用手机原生HTTP。"
+            : "未检测到可调用的原生HTTP接口，使用直连或中转。")
+      );
       try {
         const meta = await loadPreviewMeta(id, current);
         if (!meta || !current()) return [];
@@ -1205,7 +1349,9 @@
             shots.length +
             " 张预览帧：" +
             shots.map((s) => clock(s.time)).join("、") +
-            "。时间按陪看估算匹配。"
+            "。时间按陪看估算匹配。请求通道：" +
+            previewTransport +
+            "。"
         );
         refreshRoom();
         return shots;
@@ -2384,7 +2530,7 @@
   const plugin = {
     id: ID,
     name: "一起看电影",
-    version: "1.5.0",
+    version: "1.5.1",
     apps: [
       {
         id: ID + "-room",

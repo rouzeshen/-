@@ -1,8 +1,8 @@
 {
   "id": "tanglan-watch-together",
   "name": "一起看电影",
-  "version": "1.5.9",
-  "description": "同屏观影、多帧画面与独立气泡，支持长按编辑删除消息、折叠计时设置、自动开口及AI请求计数。",
+  "version": "1.6.0",
+  "description": "支持B站短链与分享文字，同屏观影、多帧画面、长按编辑删除、折叠计时及AI请求计数。",
   "author": "唐蓝",
   "entry": "https://raw.githubusercontent.com/rouzeshen/-/main/watch-together.js",
   "hash": "",

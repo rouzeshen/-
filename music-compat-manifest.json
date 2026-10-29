@@ -1,8 +1,8 @@
 {
   "id": "roche-music-player",
   "name": "网易云音乐",
-  "version": "3.0.4",
-  "description": "恢复后端聊天路径：不再常驻注册音乐工具，显式点歌在聊天准备步骤执行；保留歌词和播放器",
+  "version": "3.0.5",
+  "description": "修复你试试看、就这首等前文确认点歌；明确书名号歌名直接执行，保留后端路径",
   "author": "原作者 Roche；兼容修订 rouzeshen",
   "entry": "https://raw.githubusercontent.com/rouzeshen/-/main/music-player-compat.js",
   "hash": "",

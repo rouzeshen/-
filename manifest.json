@@ -1,19 +1,6 @@
 {
-  "id": "tanglan-watch-together",
-  "name": "一起看电影",
-  "version": "1.6.1",
-  "description": "同屏观影与多帧画面，支持可编辑的观影总结写入记忆、长按编辑删除、短链与自动开口。",
-  "author": "唐蓝",
-  "entry": "https://raw.githubusercontent.com/rouzeshen/-/main/watch-together.js",
-  "hash": "",
-  "permissions": [
-    "persona:read",
-    "character:read",
-    "memory:read",
-    "memory:write",
-    "worldbook:read",
-    "ai:chat",
-    "storage",
-    "ui"
-  ]
+  "id": "roche-reply-alarm",
+  "name": "角色提醒与叫起床",
+  "version": "0.2.0",
+  "entry": "reply-alarm-settings.js"
 }

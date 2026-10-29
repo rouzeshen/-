@@ -1,6 +1,6 @@
 {
   "id": "roche-reply-alarm",
   "name": "角色提醒与叫起床",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "entry": "reply-alarm-settings.js"
 }

@@ -1,7 +1,7 @@
-/* Roche companion settings 0.2.5. Notification reactions run only while this page is visible. */
+/* Roche companion settings 0.2.7. Notification reactions run only while this page is visible. */
 (() => {
 'use strict';
-const ID='tanglan-companion-settings', VERSION='0.2.5';
+const ID='tanglan-companion-settings', VERSION='0.2.7';
 const instances=new WeakMap();
 const cut=(v,n=1200)=>String(v??'').slice(0,n);
 const make=(tag,text)=>{const e=document.createElement(tag);if(text!==undefined)e.textContent=text;return e;};
@@ -12,8 +12,9 @@ function nativePlugin(){
 }
 async function mount(container,roche){
   instances.get(container)?.();
+  let currentRole='';
   let alive=true,busy=false,epoch=0,events=[],apps=[],targets=[],config={enabled:false,apps:{}},permission=false,connected=false;
-  let prefs={conversationId:'',allowAI:false,autoForeground:false,dailyLimit:20},usage={day:'',count:0,last:{}};
+  let prefs={settingsConversationId:'',conversationId:'',allowAI:false,autoForeground:false,dailyLimit:20},usage={day:'',count:0,last:{}};
   const native=nativePlugin(),host=window.RocheCompanionHost;
   const ownedStyles={height:'100%',minHeight:'0',minWidth:'0',overflow:'hidden',display:'flex',flexDirection:'column'};
   const previousStyles=Object.fromEntries(Object.keys(ownedStyles).map(k=>[k,container.style[k]]));
@@ -22,11 +23,12 @@ async function mount(container,roche){
   const root=make('div');root.className='roche-companion';
   root.innerHTML=`<style>
 .roche-companion{--bg:#151719;--card:#202326;--line:#3b3f43;--fg:#eeeae2;--muted:#b1b1ad;--accent:#d5c5a1;background:var(--bg);color:var(--fg);padding:16px;height:100%;max-height:100dvh;min-height:0;min-width:0;width:100%;flex:1 1 0;font:15px/1.6 system-ui,sans-serif;box-sizing:border-box;overflow-x:hidden;overflow-y:auto;overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;overflow-wrap:anywhere}
-.roche-companion *{box-sizing:border-box}.roche-companion header,.roche-companion .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.roche-companion header{justify-content:space-between}.roche-companion h1{font-size:20px;margin:0}.roche-companion h2,.roche-companion summary{font-size:17px;font-weight:650;margin:0 0 12px}.roche-companion section{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin:16px 0}.roche-companion label{display:block;margin:12px 0}.roche-companion input:not([type=checkbox]),.roche-companion select{display:block;width:100%;margin-top:6px;border:1px solid var(--line);border-radius:10px;background:#171a1d;color:var(--fg);padding:10px;min-height:44px;font:inherit}.roche-companion input[type=checkbox]{accent-color:var(--accent);width:21px;height:21px;vertical-align:middle;margin-right:8px}.roche-companion button{border:1px solid var(--line);border-radius:12px;background:#303438;color:var(--fg);padding:10px 15px;font:inherit;min-height:44px}.roche-companion button.primary{background:var(--accent);color:#171719}.roche-companion button:disabled{opacity:.5}.roche-companion .muted{color:var(--muted);font-size:13px}.roche-companion .notice{color:#e0cba0}.roche-companion .error{color:#f2a9a2}.roche-companion .apps{max-height:320px;overflow:auto}.roche-companion .app{border-top:1px solid var(--line);padding:9px 0;display:grid;grid-template-columns:minmax(0,1fr) 145px;gap:10px;align-items:center}.roche-companion .app small{display:block;color:var(--muted);font-size:11px}.roche-companion .app select{margin:0;padding:7px;font-size:13px}.roche-companion .event{padding:12px 0;border-top:1px solid var(--line);white-space:pre-wrap}.roche-companion .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.roche-companion .grid label{min-width:0}.roche-companion [role=status]{white-space:pre-wrap}.roche-companion [hidden]{display:none!important}@media(max-width:360px){.roche-companion .app{grid-template-columns:1fr}.roche-companion{padding:10px}}
+.roche-companion *{box-sizing:border-box}.roche-companion header,.roche-companion .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.roche-companion header{justify-content:space-between;position:sticky;top:-16px;z-index:20;background:var(--bg);padding:10px 0}.roche-companion h1{font-size:20px;margin:0}.roche-companion h2,.roche-companion summary{font-size:17px;font-weight:650;margin:0 0 12px}.roche-companion section{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin:16px 0}.roche-companion label{display:block;margin:12px 0}.roche-companion input:not([type=checkbox]),.roche-companion select{display:block;width:100%;margin-top:6px;border:1px solid var(--line);border-radius:10px;background:#171a1d;color:var(--fg);padding:10px;min-height:44px;font:inherit}.roche-companion input[type=checkbox]{accent-color:var(--accent);width:21px;height:21px;vertical-align:middle;margin-right:8px}.roche-companion button{border:1px solid var(--line);border-radius:12px;background:#303438;color:var(--fg);padding:10px 15px;font:inherit;min-height:44px}.roche-companion button.primary{background:var(--accent);color:#171719}.roche-companion button:disabled{opacity:.5}.roche-companion .overview-list{max-height:360px;overflow:auto}.roche-companion .overview-card{display:block;width:100%;text-align:left;margin:8px 0;padding:12px;white-space:normal}.roche-companion .overview-card[aria-current="true"]{border-color:var(--accent);box-shadow:inset 3px 0 var(--accent)}.roche-companion .overview-card strong{display:block}.roche-companion .badge{display:inline-block;border:1px solid var(--line);border-radius:7px;padding:2px 6px;margin:4px 5px 0 0;font-size:12px}.roche-companion .badge.active{color:#bce3cc;background:#253a30}.roche-companion .badge.pending{color:#ead6a8;background:#393328}.roche-companion .muted{color:var(--muted);font-size:13px}.roche-companion .notice{color:#e0cba0}.roche-companion .error{color:#f2a9a2}.roche-companion .apps{max-height:320px;overflow:auto}.roche-companion .app{border-top:1px solid var(--line);padding:9px 0;display:grid;grid-template-columns:minmax(0,1fr) 145px;gap:10px;align-items:center}.roche-companion .app small{display:block;color:var(--muted);font-size:11px}.roche-companion .app select{margin:0;padding:7px;font-size:13px}.roche-companion .event{padding:12px 0;border-top:1px solid var(--line);white-space:pre-wrap}.roche-companion .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.roche-companion .grid label{min-width:0}.roche-companion [role=status]{white-space:pre-wrap}.roche-companion [hidden]{display:none!important}@media(max-width:360px){.roche-companion .app{grid-template-columns:1fr}.roche-companion{padding:10px}}
 </style>
-<header><button data-a="back">返回</button><h1>主动联系与通知</h1><span class="muted">0.2.5</span></header>
+<header><button data-a="back">返回</button><h1>主动联系与通知</h1><span class="muted">0.2.7</span></header>
 <p class="muted" data-n="buildState"></p><p data-n="status" role="status"></p>
-<section><h2>和谁相伴</h2><label>对应的私聊会话<select data-n="target"></select></label><p class="muted">用户身份和通知回应跟随这个会话；群聊暂不接入。</p></section>
+<section><h2>角色设置总览</h2><p class="muted">主动联系和消息条数按私聊分别保存，可以多个同时启用。这里显示本机已保存状态；后台是否正在运行，需点下方刷新后台状态核对。</p><input data-n="roleSearch" type="search" placeholder="搜索角色或会话"><select data-n="roleFilter"><option value="all">全部会话</option><option value="configured">已配置自然联系或自然条数</option><option value="default">两项均未开启</option></select><p data-n="roleSummary" class="muted"></p><div data-n="overview" class="overview-list"></div><button data-a="refreshOverview">刷新总览</button></section>
+<section><h2>当前编辑的角色</h2><label>私聊会话<select data-n="target"></select></label><p class="muted">切换只更换下面的设置表单，不关闭其他角色。每个角色分别点保存；未保存的表单不会自动提交。群聊暂不接入。</p></section>
 <section><h2>消息条数</h2><label>回复节奏<select data-n="bubbleMode"><option value="fixed">沿用 Roche 原条数设置</option><option value="natural">自然条数：随话题展开</option></select></label><p class="muted">日常偏向2—4条，聊深入了可展开到8—16条，不要求凑数；内容完整比条数更重要。开启后接管原固定范围。</p><div class="grid"><label><input data-n="bubbleMinOn" type="checkbox">设最少条数<input data-n="bubbleMin" type="number" min="1" max="40" value="2"></label><label><input data-n="bubbleMaxOn" type="checkbox" checked>设最多条数<input data-n="bubbleMax" type="number" min="1" max="40" value="20"></label></div><p class="muted">不开最少限制就不凑数；不开最多偏好时仍提示最多40条，避免异常长回复。多条气泡来自一次生成，具体长度仍受模型输出上限影响。</p><button class="primary" data-a="saveBubbles">保存消息节奏</button><p class="muted" data-n="bubbleState"></p></section><section><h2>自然联系</h2><p class="notice" data-n="contactState">选择自然联系并保存后，会检测抱脸版本，再启用后台随机调度。</p><p data-n="fixed" class="muted"></p>
 <label>希望使用的模式<select data-n="mode"><option value="fixed">沿用原定时模式</option><option value="natural">自然联系</option></select></label>
 <label><input data-n="activityFollowups" type="checkbox" checked>短时活动结束后回来接话</label><p class="muted">只跟进角色明确说过的洗澡、吃饭、小睡、买东西或忙一会儿；支持 1—180 分钟；优先按说出的时间，没说具体时长才估计。已聊回来、取消或过期就不再重复。需要 0.2.5 本体和后端。</p><label>主动程度<select data-n="intensity"><option value="low">低调</option><option value="normal">普通</option><option value="high">热情</option></select></label>
@@ -39,7 +41,7 @@ async function mount(container,roche){
 <label>搜索 App<input data-n="search" type="search" placeholder="输入名称或包名"></label><div data-n="apps" class="apps"></div>
 <div class="row"><button class="primary" data-a="saveNotifications">保存通知设置</button><button data-a="stop">关闭并清空</button></div>
 <p class="muted">仅在内存暂存最多30条、最长30分钟；进程结束即丢失，不把通知正文写入本地存储。系统可能隐藏部分通知内容。</p></section>
-<section><h2>让角色回应</h2><label><input data-n="allowAI" type="checkbox">允许将选定范围的通知发给我的 AI 接口</label><label><input data-n="auto" type="checkbox">本页打开时自动回应新通知</label><p class="muted">自动回应每个 App 间隔至少15分钟，每天最多20次请求。关闭本页或切到后台就暂停回应；后台通知只能暂存，尚未接入抱脸后台回应。</p>
+<section><h2>让角色回应通知</h2><label>通知由谁回应<select data-n="notificationTarget"></select></label><p class="muted">通知回应目前只选一个私聊接收对象，与上方正在编辑谁的主动联系/消息条数分开。切换编辑角色不会改动此对象。</p><label><input data-n="allowAI" type="checkbox">允许将选定范围的通知发给我的 AI 接口</label><label><input data-n="auto" type="checkbox">本页打开时自动回应新通知</label><p class="muted">自动回应每个 App 间隔至少15分钟，每天最多20次请求。关闭本页或切到后台就暂停回应；后台通知只能暂存，尚未接入抱脸后台回应。</p>
 <div class="row"><button data-a="read">读取已暂存通知</button><button data-a="clear">清空通知</button><button class="primary" data-a="react">让角色回应最新一条</button></div><p data-n="count" class="muted"></p><div data-n="events"></div></section>`;
   container.replaceChildren(root);
   const $=n=>root.querySelector(`[data-n="${n}"]`),btn=a=>root.querySelector(`[data-a="${a}"]`);
@@ -47,6 +49,36 @@ async function mount(container,roche){
   $('buildState').textContent='本体接口：'+(host?.version||'未检测到')+(host&&!host.syncActivity?'；回来接话需要安装新版本体并完全重开。':'');
   const valid=e=>alive&&epoch===e;
   const chosen=()=>targets.find(t=>t.id===$('target').value);
+  const notificationChosen=()=>targets.find(t=>String(t.id)===String($('notificationTarget').value));
+  const roleNames=new Map();
+  function overviewState(target){
+    const d=host?.getDraft?.(target.id)||{},b=host?.getBubblePolicy?.(target.id)||{};
+    const natural=d.requestedMode==='natural',ready=natural&&d.activation==='ready';
+    const label=ready?(target.fixedEnabled?'自然联系：已配置':'自然联系：已配，原后台开关关闭'):natural?'自然联系：待启用':target.fixedEnabled?'原定时：已开启':'主动联系：未开启';
+    const bubbles=b.enabled?`自然条数：${b.minEnabled?b.min:1}—${b.maxEnabled?b.max:40}条`:'条数：沿用原设置';
+    return {d,b,natural,ready,configured:natural||b.enabled,label,bubbles};
+  }
+  function renderOverview(){
+    if(!alive)return;const fresh=host?.listTargets?.();if(Array.isArray(fresh))targets=fresh;
+    for(const field of ['target','notificationTarget']){const select=$(field),before=select.value;for(const t of targets)if(![...select.options].some(o=>o.value===String(t.id))){const option=make('option',(roleNames.get(String(t.id))||t.title||t.id)+' · '+String(t.id).slice(-6));option.value=String(t.id);select.append(option);}for(const option of [...select.options])if(option.value&&!targets.some(t=>String(t.id)===option.value))option.remove();if([...select.options].some(o=>o.value===before))select.value=before;else select.value='';}
+    const box=$('overview');box.replaceChildren();const q=$('roleSearch').value.trim().toLowerCase(),filter=$('roleFilter').value;let natural=0,bubbles=0,displayed=0;
+    for(const target of targets){const st=overviewState(target);if(st.ready)natural++;if(st.b.enabled)bubbles++;const name=roleNames.get(String(target.id))||target.title||target.id;
+      if(q&&!String(name+' '+target.id).toLowerCase().includes(q)||filter==='configured'&&!st.configured||filter==='default'&&st.configured)continue;
+      const card=make('button');card.className='overview-card';card.dataset.role=target.id;card.setAttribute('aria-current',String(String(target.id)===String($('target').value)));card.append(make('strong',name+' · '+String(target.id).slice(-6)));
+      for(const [text,active,pending]of [[st.label,st.ready&&target.fixedEnabled,st.natural&&!st.ready||st.ready&&!target.fixedEnabled],[st.bubbles,st.b.enabled,false]]){const tag=make('span',text);tag.className='badge'+(active?' active':pending?' pending':'');card.append(tag);}
+      if(st.ready){const t=make('span',`${st.d.minMinutes}—${st.d.maxMinutes}分钟 · 每日最多${st.d.dailyLimit}次`);t.className='badge';card.append(t);}
+      if(String(target.id)===String($('notificationTarget').value)){const tag=make('span','通知回应对象');tag.className='badge';card.append(tag);}
+      card.onclick=()=>run(()=>selectRole(target.id));box.append(card);displayed++;
+    }
+    $('roleSummary').textContent=`共${targets.length}个私聊 · 自然联系已配置${natural}个 · 自然条数${bubbles}个`;
+    if(!displayed)box.append(make('p','没有符合条件的会话。'));
+  }
+  async function selectRole(id){
+    if(btn('saveBubbles').disabled||btn('saveContact').disabled){$('target').value=currentRole;throw Error('正在保存当前角色，请保存完成后再切换');}
+    if(!targets.some(t=>String(t.id)===String(id)))throw Error('此私聊会话已不存在');
+    const previous=prefs.settingsConversationId; $('target').value=String(id);prefs.settingsConversationId=String(id);try{await savePrefs();}catch(error){prefs.settingsConversationId=previous;$('target').value=currentRole;throw error;}loadDraft();
+  }
+
   const describe=e=>`${cut(e.appLabel||e.packageName,100)} 来了一条通知`+(e.level>=2&&e.title?`，标题：${cut(e.title,200)}`:'')+(e.level>=3&&e.text?`\n内容：${cut(e.text,1200)}`:'');
   function day(){const d=new Date();return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;}
   function count(){if(usage.day!==day())usage={day:day(),count:0,last:usage.last||{}};$('count').textContent=`今天通知回应额度 ${usage.count}/20 次（含失败和已预留请求）。`;}
@@ -69,13 +101,14 @@ async function mount(container,roche){
     if(!apps.length)$('apps').append(make('p','App 列表尚不可用，请确认已安装修改后的安卓包，再刷新。'));
   }
   function loadDraft(){
-    const target=chosen();if(!target||!host)return;
+    const latest=host?.listTargets?.();if(Array.isArray(latest))targets=latest;
+    const target=chosen();if(!target||!host)return;currentRole=String(target.id);
     const d=host.getDraft(target.id);
     const bubble=host.getBubblePolicy?.(target.id)||{enabled:false,minEnabled:false,min:2,maxEnabled:true,max:20};$('bubbleMode').value=bubble.enabled?'natural':'fixed';$('bubbleMinOn').checked=bubble.minEnabled;$('bubbleMin').value=bubble.min;$('bubbleMaxOn').checked=bubble.maxEnabled;$('bubbleMax').value=bubble.max;$('bubbleState').textContent=bubble.enabled?'此会话已开启自然条数。':'此会话沿用 Roche 原固定范围。';
     $('activityFollowups').checked=d.activityFollowupsEnabled!==false;$('mode').value=d.requestedMode;$('intensity').value=d.intensity;$('min').value=d.minMinutes;$('max').value=d.maxMinutes;$('cap').value=d.dailyLimit;$('retreat').checked=d.retreatOnUnanswered;$('quiet').checked=d.quietEnabled;$('start').value=d.quietStart;$('end').value=d.quietEnd;
     $('timezone').textContent=`时区：${d.timezone}。勿扰跨午夜时按这两个时间处理；开始与结束相同表示全天勿扰。`;
     $('contactState').textContent=d.activation==='ready'&&d.requestedMode==='natural'?'自然联系已配置。普通联系到点直接尝试；回来接话单独排期，仍受勿扰和每日额度约束。':'当前沿用原定时模式。自然联系保存前会先检查后端支持。';
-    $('fixed').textContent=target.fixedEnabled?`原后台开关：已开启，原间隔 ${target.fixedInterval} 分钟。`:'当前原有私聊后台活动：未开启。';$('preview').textContent='';
+    renderOverview();$('fixed').textContent=target.fixedEnabled?`原后台开关：已开启，原间隔 ${target.fixedInterval} 分钟。`:'当前原有私聊后台活动：未开启。';$('preview').textContent='';
   }
   function draftInput(){
     const min=Number($('min').value),max=Number($('max').value),cap=Number($('cap').value);
@@ -109,7 +142,7 @@ async function mount(container,roche){
     if(busy)throw Error('正在等待角色回应');
     if(!native||!prefs.allowAI||!$('allowAI').checked)throw Error('请先允许将通知发送给 AI');
     if(document.hidden)throw Error('回到本页后再回应');
-    const target=chosen();if(!target?.contactId)throw Error('请先选择有效的私聊会话');
+    const target=notificationChosen();if(!target?.contactId)throw Error('请先选择有效的私聊会话');
     if(!event)throw Error('先读取一条新通知');
     if(Date.now()-event.capturedAt>30*60e3)throw Error('这条通知已过期，请读取新通知');
     count();if(usage.count>=20)throw Error('今天通知回应请求已达到20次上限');
@@ -147,21 +180,23 @@ async function mount(container,roche){
   }
   async function run(action){try{await action();}catch(error){status(cut(error?.message||error,240),true);}}
   btn('back').onclick=()=>roche.ui.closeApp();
-  $('target').onchange=()=>run(async()=>{invalidate();prefs.conversationId=$('target').value;await savePrefs();loadDraft();});
+  $('target').onchange=()=>run(()=>selectRole($('target').value));
+  $('notificationTarget').onchange=()=>run(async()=>{invalidate();prefs.conversationId=$('notificationTarget').value;await savePrefs();renderOverview();status('通知回应对象已保存；其他角色的主动联系和消息条数保持各自设置。');});
+  $('roleSearch').oninput=renderOverview;$('roleFilter').onchange=renderOverview;btn('refreshOverview').onclick=()=>run(async()=>{renderOverview();status('已刷新本机设置总览，尚未逐个查询后台。');});
   $('search').oninput=renderApps;
   btn('saveBubbles').onclick=()=>run(async()=>{if(!host?.saveBubblePolicy||!chosen())throw Error(!host?'当前本体未加载配套核心，消息条数功能尚不可用；需要按当前工程版本重新适配。':'请先选择一个私聊会话');const min=Number($('bubbleMin').value),max=Number($('bubbleMax').value);if(!Number.isInteger(min)||min<1||min>40||!Number.isInteger(max)||max<1||max>40||($('bubbleMinOn').checked&&$('bubbleMaxOn').checked&&max<min))throw Error('条数请填1—40，同时开启上下限时最多不能少于最少');btn('saveBubbles').disabled=true;try{await host.saveBubblePolicy(chosen().id,{enabled:$('bubbleMode').value==='natural',minEnabled:$('bubbleMinOn').checked,min,maxEnabled:$('bubbleMaxOn').checked,max});loadDraft();status('消息节奏已保存。下次生成会使用新规则，已有消息不改动。');}finally{if(alive)btn('saveBubbles').disabled=false;}});
   btn('saveContact').onclick=()=>run(async()=>{if(!host?.getBackendState||!host?.checkBackend||!chosen())throw Error(host?'请先选择一个私聊会话':'当前本体未加载配套核心，请更新安卓工程');const d=draftInput();btn('saveContact').disabled=true;try{const saved=await host.saveDraft(chosen().id,d);status(saved.activation==='ready'&&saved.requestedMode==='natural'?'自然联系已保存并提交后台调度。':'已恢复原模式。');loadDraft();}finally{if(alive)btn('saveContact').disabled=false;}});
-  btn('backendStatus').onclick=()=>run(async()=>{if(!host?.getBackendState||!chosen())throw Error(host?'请先选择一个私聊会话':'当前本体未加载配套核心，请更新安卓工程');const task=await host.getBackendState(chosen().id);if(!task){status('这个会话当前没有自然联系任务。');return;}const reasons={'waiting':'等待检查','quiet':'勿扰时段','daily-limit':'今日额度已满','recent-conversation':'刚刚聊过，稍后再检查','waiting-for-you':'等你回复，暂不继续联系','quiet-this-round':'这一轮保持安静','generating':'正在生成','conversation-changed':'聊天有更新，本轮已取消','no-topic':'这轮没有自然话题','sent':'已发送','followup-sent':'已回来接话','push-failed':'消息已生成，但推送失败','disabled':'已关闭','generation-failed':'模型请求失败，稍后重试','context-unavailable':'暂时无法核对会话状态'};const time=v=>v?new Date(v).toLocaleString():'暂无';const followup=task.followup;const states={pending:'已安排',done:'已完成',cancelled:'已取消'};const why={expired:'已过适合接话的时段','already-returned':'已经聊回来','conversation-resumed':'对话已经继续','user-cancelled':'已按你的要求取消',disabled:'开关已关闭',superseded:'角色已改了安排','generation-failed':'请求失败','no-topic':'角色选择保持安静'};status(`${task.active?'任务已开启':'任务已停止'} · ${reasons[task.reason]||task.reason}\n后端版本：${task.schedulerVersion||'旧版，请更新抱脸文件'}\n下次执行：${time(task.nextAt)}\n上次检查：${time(task.lastCheckAt)}\n上次结果：${reasons[task.lastDecision]||task.lastDecision||'暂无记录'}\n上次发送：${time(task.lastSentAt)}\n${followup?`回来接话：${followup.label} · ${states[followup.status]||followup.status} · ${time(followup.dueAt)}${followup.reason?'（'+(why[followup.reason]||followup.reason)+'）':''}\n`:''}${task.lastFailure?'最近请求失败：'+cut(task.lastFailure,160)+'\n':''}今日请求：${task.dailyCalls}/${task.dailyLimit}，失败也计入额度。勿扰、额度或正在聊天时会延后。`);});
+  btn('backendStatus').onclick=()=>run(async()=>{if(!host?.getBackendState||!chosen())throw Error(host?'请先选择一个私聊会话':'当前本体未加载配套核心，请更新安卓工程');const task=await host.getBackendState(chosen().id);if(!task){status('这个会话当前没有自然联系任务。');return;}const reasons={'agenda-sent':'日程提醒已发送','waiting':'等待检查','quiet':'勿扰时段','daily-limit':'今日额度已满','recent-conversation':'刚刚聊过，稍后再检查','waiting-for-you':'等你回复，暂不继续联系','quiet-this-round':'这一轮保持安静','generating':'正在生成','conversation-changed':'聊天有更新，本轮已取消','no-topic':'这轮没有自然话题','sent':'已发送','followup-sent':'已回来接话','push-failed':'消息已生成，但推送失败','disabled':'已关闭','generation-failed':'模型请求失败，稍后重试','context-unavailable':'暂时无法核对会话状态'};const time=v=>v?new Date(v).toLocaleString():'暂无';const followup=task.followup;const states={pending:'已安排',done:'已完成',cancelled:'已取消'};const why={expired:'已过适合接话的时段','already-returned':'已经聊回来','conversation-resumed':'对话已经继续','user-cancelled':'已按你的要求取消',disabled:'开关已关闭',superseded:'角色已改了安排','generation-failed':'请求失败','no-topic':'角色选择保持安静'};status(`${task.active?'任务已开启':'任务已停止'} · ${reasons[task.reason]||task.reason}\n后端版本：${task.schedulerVersion||'旧版，请更新抱脸文件'}\n下次执行：${time(task.nextAt)}\n上次检查：${time(task.lastCheckAt)}\n上次结果：${reasons[task.lastDecision]||task.lastDecision||'暂无记录'}\n上次发送：${time(task.lastSentAt)}\n${followup?`回来接话：${followup.label} · ${states[followup.status]||followup.status} · ${time(followup.dueAt)}${followup.reason?'（'+(why[followup.reason]||followup.reason)+'）':''}\n`:''}${task.lastFailure?'最近请求失败：'+cut(task.lastFailure,160)+'\n':''}今日请求：${task.dailyCalls}/${task.dailyLimit}，失败也计入额度。勿扰、额度或正在聊天时会延后。`);});
   btn('preview').onclick=()=>run(async()=>{const d=draftInput();const intervals=Array.from({length:5},()=>Math.floor(d.minMinutes+Math.random()*(d.maxMinutes-d.minMinutes+1)));$('preview').textContent='随机间隔示例：'+intervals.join('、')+' 分钟。仅演示，不创建任务，也不请求 AI。';});
   btn('authorize').onclick=()=>run(async()=>{if(!native)throw Error('此环境没有安卓通知接口');await native.openSettings();});
   btn('refresh').onclick=()=>run(refresh);
   btn('saveNotifications').onclick=()=>run(async()=>{if(!native)throw Error('请先安装修改后的安卓包');invalidate();config.enabled=$('enabled').checked;await native.setConfig({config});await refresh();status(config.enabled?'通知配置已保存。请让所选 App 发一条新通知测试。':'通知读取已关闭。');});
   btn('stop').onclick=()=>run(async()=>{invalidate();prefs.autoForeground=false;prefs.allowAI=false;$('auto').checked=false;$('allowAI').checked=false;await savePrefs();if(native)await native.setConfig({config:{enabled:false,apps:{}}});config={enabled:false,apps:{}};await refresh();status('通知读取与 AI 回应已关闭，暂存已清空。');});
   $('allowAI').onchange=()=>run(async()=>{epoch++;prefs.allowAI=$('allowAI').checked;if(!prefs.allowAI){prefs.autoForeground=false;$('auto').checked=false;}await savePrefs();status(prefs.allowAI?'已允许将所选范围通知发送给当前配置的 AI。':'已停止发送通知给 AI。已经提交的请求无法撤回。');});
-  $('auto').onchange=()=>run(async()=>{if($('auto').checked&&(!prefs.allowAI||!chosen())){$('auto').checked=false;throw Error('请先选择会话并允许 AI 读取通知');}prefs.autoForeground=$('auto').checked;await savePrefs();});
+  $('auto').onchange=()=>run(async()=>{if($('auto').checked&&(!prefs.allowAI||!notificationChosen())){$('auto').checked=false;throw Error('请先选择会话并允许 AI 读取通知');}prefs.autoForeground=$('auto').checked;await savePrefs();});
   btn('read').onclick=()=>run(readEvents);btn('react').onclick=()=>run(()=>react());
   btn('clear').onclick=()=>run(async()=>{invalidate();if(native)await native.clearEvents();status('暂存通知已清空。');});
-  const resume=()=>{if(!document.hidden)run(refresh);};document.addEventListener('visibilitychange',resume);
+  const resume=()=>{if(!document.hidden){renderOverview();run(refresh);}};document.addEventListener('visibilitychange',resume);
   const timer=setInterval(()=>{if(alive&&!document.hidden&&!busy)run(readEvents);},10000);
   instances.set(container,()=>{alive=false;epoch++;clearInterval(timer);document.removeEventListener('visibilitychange',resume);events=[];container.replaceChildren();restoreLayout();});
   try{
@@ -171,10 +206,13 @@ async function mount(container,roche){
     for(const key of Object.keys(usage.last)){const value=Number(usage.last[key]);if(!Number.isFinite(value)||value<0||value>Date.now())delete usage.last[key];}
     targets=host?.listTargets?.()||[];
     const chars=await roche.character.list();if(!alive)return;
-    for(const target of targets){const char=(chars||[]).find(c=>String(c.id)===String(target.contactId));const option=make('option',(char?.handle||char?.name||target.title)+' · '+target.id.slice(-6));option.value=target.id;$('target').append(option);}
-    if(targets.some(t=>t.id===prefs.conversationId))$('target').value=prefs.conversationId;
+    const notifyPlaceholder=make('option','请选择通知回应对象');notifyPlaceholder.value='';$('notificationTarget').append(notifyPlaceholder);
+    for(const target of targets){const char=(chars||[]).find(c=>String(c.id)===String(target.contactId));const name=char?.handle||char?.name||target.title;roleNames.set(String(target.id),name);for(const field of ['target','notificationTarget']){const option=make('option',name+' · '+String(target.id).slice(-6));option.value=target.id;$(field).append(option);}}
+    if(targets.some(t=>String(t.id)===String(prefs.conversationId)))$('notificationTarget').value=prefs.conversationId;
+    else $('notificationTarget').value='';
+    const selected=prefs.settingsConversationId||prefs.conversationId;if(targets.some(t=>String(t.id)===String(selected)))$('target').value=selected;
     if(!targets.length){const option=make('option',host?'请先在 Roche 导入或建立一个私聊会话':'未检测到配套会话接口，请核对本体工程版本');option.value='';$('target').append(option);}
-    $('allowAI').checked=prefs.allowAI;$('auto').checked=prefs.autoForeground;loadDraft();count();renderEvents();await refresh();
+    $('allowAI').checked=prefs.allowAI;$('auto').checked=prefs.autoForeground;loadDraft();renderOverview();count();renderEvents();await refresh();
   }catch(error){status('初始化失败：'+cut(error.message,200),true);}
 }
 window.RochePlugin.register({id:ID,name:'主动联系与通知',version:VERSION,chat:{scope:{conversationTypes:['direct']},contextProvider(ctx){try{const h=window.RocheCompanionHost;if(!h?.syncActivity)return null;const d=h.getDraft(ctx.conversationId);if(d.requestedMode!=='natural'||d.activation!=='ready'||d.activityFollowupsEnabled===false)return null;return '【短时离开与回来】只在情境自然需要时，才说自己去洗澡、吃饭、小睡、买东西或忙一会儿；如果确实准备回来接话，可以自然给一个大概多久。不要为了触发功能编造忙碌、频繁离开或躲开用户。说出的活动和时长属于角色时间线；后续接话要与最新聊天一致。没有离开的情境就正常聊天，不要提后台、计时器或系统机制。';}catch{return null;}}},apps:[{id:ID+'-home',name:'主动联系与通知',icon:'notifications',mount,unmount(container){instances.get(container)?.();instances.delete(container);}}]});

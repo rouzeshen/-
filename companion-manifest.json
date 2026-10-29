@@ -1,8 +1,8 @@
 {
   "id": "tanglan-companion-settings",
   "name": "主动联系与通知",
-  "version": "0.2.5",
-  "description": "自然主动联系、短时活动回来接话、详细后台状态与通知感知设置。",
+  "version": "0.2.7",
+  "description": "多角色设置总览、分会话自然联系与消息条数、独立通知回应对象。",
   "author": "唐蓝",
   "entry": "https://raw.githubusercontent.com/rouzeshen/-/main/companion-settings.js",
   "hash": "",

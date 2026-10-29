@@ -1,0 +1,6 @@
+{
+  "id": "roche-shared-agenda",
+  "name": "双方日程",
+  "version": "0.2.0",
+  "entry": "schedule-settings.js"
+}

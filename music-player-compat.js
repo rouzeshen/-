@@ -96,8 +96,195 @@
       );
   }
 
+  // All plugin records live in a plugin-owned DB, outside host sync/push storage.
+  var PRIVATE_DB = "roche-plugin-music-player-compat";
+  var privateDbPromise = null,
+    migrationPromise = null;
+  var LEGACY_KEYS = [
+    "rmp_agreed_disclaimer",
+    "rmp_cookie",
+    "rmp_extended_sources",
+    "rmp_island_scroll_mode",
+    "rmp_island_top",
+    "rmp_island_visible",
+    "rmp_lyrics_full_inject",
+    "rmp_mcp_token",
+    "rmp_netease_api_base",
+    "rmp_play_mode",
+    "rmp_playlist",
+    "rmp_quality",
+    "rmp_user_profile",
+    "rmp_volume",
+  ];
+  function openPrivateDb() {
+    if (privateDbPromise) return privateDbPromise;
+    privateDbPromise = new Promise(function (resolve, reject) {
+      if (!window.indexedDB) {
+        reject(new Error("独立音乐存储不可用，插件不会回写宿主存储"));
+        return;
+      }
+      var request = window.indexedDB.open(PRIVATE_DB, 1);
+      request.onupgradeneeded = function () {
+        if (!request.result.objectStoreNames.contains("kv"))
+          request.result.createObjectStore("kv");
+      };
+      request.onsuccess = function () {
+        resolve(request.result);
+      };
+      request.onerror = function () {
+        reject(new Error("独立音乐存储打开失败"));
+      };
+      request.onblocked = function () {
+        reject(new Error("音乐存储被旧页面占用，请重启 Roche"));
+      };
+    });
+    return privateDbPromise;
+  }
+  function privateRead(key) {
+    return openPrivateDb().then(function (db) {
+      return new Promise(function (resolve, reject) {
+        var request = db
+          .transaction("kv", "readonly")
+          .objectStore("kv")
+          .get(key);
+        request.onsuccess = function () {
+          resolve(request.result);
+        };
+        request.onerror = function () {
+          reject(request.error || new Error("读取音乐存储失败"));
+        };
+      });
+    });
+  }
+  function privateWrite(key, value, remove) {
+    return openPrivateDb().then(function (db) {
+      return new Promise(function (resolve, reject) {
+        var tx = db.transaction("kv", "readwrite"),
+          records = tx.objectStore("kv");
+        if (remove) records.delete(key);
+        else records.put(value, key);
+        tx.oncomplete = function () {
+          resolve();
+        };
+        tx.onerror = tx.onabort = function () {
+          reject(tx.error || new Error("保存音乐存储失败"));
+        };
+      });
+    });
+  }
+  function preparePrivateStorage(originalHost) {
+    if (migrationPromise) return migrationPromise;
+    migrationPromise = (async function () {
+      await openPrivateDb();
+      // Once migration completes, never re-import a stale credential after logout.
+      if (await privateRead("__migration_completed_v1")) return;
+      var oldStore = originalHost && originalHost.storage;
+      if (oldStore && typeof oldStore.get === "function") {
+        for (var i = 0; i < LEGACY_KEYS.length; i++) {
+          var key = LEGACY_KEYS[i];
+          var previous = await oldStore.get(key);
+          if (previous === undefined || previous === null) continue;
+          if ((await privateRead(key)) === undefined)
+            await privateWrite(key, previous, false);
+          // Delete only exact plugin-owned keys, only after its new record commits.
+          if (typeof oldStore.delete === "function") await oldStore.delete(key);
+        }
+      }
+      await privateWrite("__migration_completed_v1", true, false);
+    })();
+    return migrationPromise;
+  }
+  function isolatedHost(originalHost) {
+    var wrapped = Object.assign({}, originalHost);
+    wrapped.storage = {
+      get: function (key) {
+        return preparePrivateStorage(originalHost).then(function () {
+          return privateRead(key);
+        });
+      },
+      set: function (key, value) {
+        return preparePrivateStorage(originalHost)
+          .then(function () {
+            return privateWrite(key, value, false);
+          })
+          .catch(function (e) {
+            if (runtimeActive) originalHost.ui.toast(e.message);
+          });
+      },
+      delete: function (key) {
+        return preparePrivateStorage(originalHost).then(function () {
+          return privateWrite(key, undefined, true);
+        });
+      },
+    };
+    return wrapped;
+  }
+  var playEpoch = 0;
+  function safePlay(player, expectedEpoch, expectedSong) {
+    return player
+      .play()
+      .then(function () {
+        if (
+          !runtimeActive ||
+          playEpoch !== expectedEpoch ||
+          STATE.currentSong !== expectedSong
+        )
+          return { success: false, cancelled: true, message: "播放任务已改变" };
+        return {
+          success: !player.paused,
+          playing: !player.paused,
+          message: player.paused ? "歌曲已加载，尚未开始播放" : "已开始播放",
+        };
+      })
+      .catch(function (error) {
+        if (
+          !runtimeActive ||
+          playEpoch !== expectedEpoch ||
+          STATE.currentSong !== expectedSong
+        )
+          return { success: false, cancelled: true, message: "播放任务已改变" };
+        if (
+          error &&
+          (error.name === "AbortError" ||
+            /interrupted.*(?:load|pause)/i.test(error.message || ""))
+        )
+          return {
+            success: false,
+            cancelled: true,
+            message: "播放被新的操作中断",
+          };
+        var needsTap = error && error.name === "NotAllowedError";
+        var message = needsTap
+          ? "手机要求手动启动音频，请点一下播放器的播放按钮"
+          : "播放失败：" + (error.message || "未知错误");
+        if (STATE.roche && STATE.roche.ui) STATE.roche.ui.toast(message);
+        return { success: false, needsTap: !!needsTap, message: message };
+      });
+  }
+  var accountReadyPromise = null,
+    latestHost = null;
+  function ensureAccountReady(roche) {
+    if (roche) {
+      latestHost = roche;
+      STATE.roche = isolatedHost(roche);
+    }
+    if (!latestHost || !STATE.roche)
+      return Promise.reject(
+        new Error("音乐插件尚未获得宿主接口，请先启用插件")
+      );
+    if (!accountReadyPromise) {
+      accountReadyPromise = preparePrivateStorage(latestHost).then(function () {
+        return loadSettings(STATE.roche);
+      });
+      accountReadyPromise.catch(function () {
+        accountReadyPromise = null;
+      });
+    }
+    return accountReadyPromise;
+  }
+
   // ==================== 全局状态 ====================
-  var BUILD_TIME = "2026-10-29-v3.0.1";
+  var BUILD_TIME = "2026-10-29-v3.0.3";
   var STATE = {
     roche: null, // roche API 实例
     audio: null, // 单个 HTMLAudioElement 实例
@@ -636,6 +823,7 @@
       .join("&");
     if (qs) url += "?" + qs;
     return fetch(url).then(function (r) {
+      if (!r.ok) throw new Error("音乐接口返回 HTTP " + r.status);
       return r.json();
     });
   }
@@ -830,18 +1018,32 @@
   }
 
   // 播放指定歌曲
-  function playSong(song, index) {
-    if (!song) return;
-    // iOS 未解锁时提示用户先点击解锁
-    if (!STATE.audioUnlocked) {
-      if (STATE.roche && STATE.roche.ui)
-        STATE.roche.ui.toast("请先点击播放器任意位置解锁音频");
+  async function playSong(song, index) {
+    if (!song || !runtimeActive)
+      return { success: false, message: "音乐插件未启用或歌曲为空" };
+    if (!song._personal || !STATE.cookie)
+      return {
+        success: false,
+        message: "音乐账号未登录，请先在音乐设置中配置可用账号",
+      };
+    initAudio();
+    createIsland();
+    if (
+      STATE.currentSong &&
+      String(STATE.currentSong.id) === String(song.id) &&
+      STATE.audio.getAttribute("src")
+    ) {
+      var same = await safePlay(STATE.audio, playEpoch, STATE.currentSong);
+      return Object.assign({}, same, {
+        song: STATE.currentSong.name,
+        artist: STATE.currentSong.artist,
+        alreadyCurrent: true,
+      });
     }
+    var epoch = ++playEpoch;
+    STATE.audio.pause();
     STATE.currentSong = song;
-    if (typeof index === "number") {
-      STATE.currentIndex = index;
-    }
-    // 切歌标记：记录用户切歌动作，contextProvider下次回调时注入提醒给char
+    if (typeof index === "number") STATE.currentIndex = index;
     STATE.justSwitched = {
       name: song.name,
       artist: song.artist,
@@ -853,69 +1055,47 @@
     STATE.rawLyrics = "";
     STATE.rawTranslatedLyrics = "";
     STATE.currentLyricIndex = -1;
-
-    // 获取播放 URL（仅网易云个人账号音源）
-    var urlPromise;
-    if (song._personal && STATE.cookie) {
-      urlPromise = getSongUrl(song.id, "netease", undefined, song._personal);
-    } else {
-      if (STATE.roche && STATE.roche.ui)
-        STATE.roche.ui.toast("请先在设置中填写网易云 Cookie");
-      return;
-    }
-    urlPromise
-      .then(function (url) {
-        // 竞态条件修复：如果在异步等待期间用户切换了歌曲，则放弃本次播放
-        if (STATE.currentSong !== song) return;
-        if (!url) {
-          if (STATE.roche && STATE.roche.ui)
-            STATE.roche.ui.toast("无法获取播放链接，可能是版权限制");
-          return;
-        }
-        console.log("[playSong] 设置音频源并播放:", url);
-        // 个人网易云：优先 audio.src 直连流式播放（边下边播，换歌秒出）。
-        // 若失败，onError 会自动回退到 fetch→blob（带 X-Netease-Cookie 头）
-        STATE.audio.src = url;
-        var playPromise = STATE.audio.play();
-        if (playPromise && typeof playPromise.then === "function") {
-          playPromise
-            .then(function () {
-              console.log("[playSong] 个人网易云 流式播放 resolve 成功");
-            })
-            .catch(function (e) {
-              console.error(
-                "[playSong] 个人网易云 play() reject:",
-                e && e.message ? e.message : e
-              );
-              // 未解锁时已在前面提示过，不再重复显示错误
-              if (!STATE.audioUnlocked) return;
-              if (STATE.roche && STATE.roche.ui)
-                STATE.roche.ui.toast("播放失败: " + (e.message || "未知错误"));
-            });
-        }
-        // 加载歌词（使用 lyricId）
-        loadLyrics(song);
-        // 个人网易云搜索结果的封面直接来自 API，若缺失则异步补拉
-        if (!song.cover && song.id) {
-          getPicUrl(song.id, "netease").then(function (picUrl) {
-            if (STATE.currentSong !== song) return;
-            if (picUrl) {
+    try {
+      var url = await getSongUrl(song.id, "netease", undefined, true);
+      if (!runtimeActive || playEpoch !== epoch || STATE.currentSong !== song)
+        return {
+          success: false,
+          cancelled: true,
+          message: "点歌任务已被新的操作替换",
+        };
+      if (!url)
+        return {
+          success: false,
+          message: "这首歌暂时没有可用播放地址，可能受到账号或版权限制",
+        };
+      STATE.audio.src = url;
+      loadLyrics(song);
+      updateSongInfoUI();
+      showIsland();
+      if (!song.cover && song.id)
+        getPicUrl(song.id, "netease")
+          .then(function (picUrl) {
+            if (
+              runtimeActive &&
+              playEpoch === epoch &&
+              STATE.currentSong === song &&
+              picUrl
+            ) {
               song.cover = picUrl;
               updateSongInfoUI();
-              updateMediaSession();
             }
-          });
-        }
-        // 更新所有 UI
-        updateSongInfoUI();
-        showIsland();
-        // 后台预取下一首播放 URL（列表模式），切歌时命中缓存秒出
-        prefetchNextSongUrl();
-      })
-      .catch(function (e) {
-        if (STATE.roche && STATE.roche.ui)
-          STATE.roche.ui.toast("获取播放链接失败");
+          })
+          .catch(function () {});
+      var status = await safePlay(STATE.audio, epoch, song);
+      if (status.success) prefetchNextSongUrl();
+      return Object.assign({}, status, {
+        song: song.name,
+        artist: song.artist,
+        platform: song.platform,
       });
+    } catch (error) {
+      return { success: false, message: error.message || "无法取得歌曲音源" };
+    }
   }
 
   // 预取下一首的播放 URL（仅列表模式的个人网易云歌曲，写入 songUrlCache）
@@ -1073,6 +1253,7 @@
     if (index < 0 || index >= STATE.playlist.length) return;
     STATE.playlist.splice(index, 1);
     if (index === STATE.currentIndex) {
+      playEpoch++;
       // 删除的是当前播放歌曲
       STATE.audio.pause();
       STATE.audio.src = "";
@@ -1089,6 +1270,7 @@
 
   // 清空播放列表
   function clearPlaylist() {
+    playEpoch++;
     STATE.playlist = [];
     STATE.currentIndex = -1;
     STATE.currentSong = null;
@@ -1641,6 +1823,7 @@
 
   // 隐藏灵动岛（关闭按钮触发，同时停止播放）
   function hideIsland() {
+    playEpoch++;
     if (STATE.islandEl) {
       STATE.islandEl.classList.add("rmp-island-hidden");
       STATE.islandEl.classList.remove("rmp-island-expanded");
@@ -3374,9 +3557,11 @@
             });
         }, 2000);
       })
-      .catch(function () {
+      .catch(function (error) {
         qrPlaceholder.textContent = "获取二维码失败";
-        qrStatus.textContent = "请求失败，请检查网络";
+        qrStatus.textContent =
+          "原公共扫码入口不可用，请在设置中填写可用的音乐 API 地址。" +
+          (error && error.message ? "（" + error.message + "）" : "");
         qrStatus.className = "rmp-qr-status-el error";
       });
   }
@@ -3582,14 +3767,15 @@
   }
 
   function initializePlugin(roche) {
-    STATE.roche = roche;
+    latestHost = roche;
+    STATE.roche = isolatedHost(roche);
     runtimeActive = true;
     if (STATE.initialized) return;
     STATE.initialized = true;
     var generation = runtimeGeneration;
     initAudio();
     createIsland();
-    loadSettings(roche)
+    ensureAccountReady(roche)
       .then(function () {
         if (!runtimeActive || generation !== runtimeGeneration) return;
         updatePlayModeUI();
@@ -3601,11 +3787,16 @@
               updateNeteaseLoginUI();
           });
       })
-      .catch(function () {});
+      .catch(function (error) {
+        if (runtimeActive && generation === runtimeGeneration && STATE.roche.ui)
+          STATE.roche.ui.toast(error.message);
+      });
   }
   function disposePlugin() {
     runtimeActive = false;
     runtimeGeneration++;
+    playEpoch++;
+    accountReadyPromise = null;
     // Cancel only handles created by this closure.
     ownedTimers.forEach(function (type, id) {
       if (type === "interval") window.clearInterval(id);
@@ -3672,7 +3863,7 @@
   var PLUGIN_VERSION =
     BUILD_TIME.indexOf("-v") >= 0 ? BUILD_TIME.split("-v")[1] : "2.0.0";
 
-  window.RochePlugin.register({
+  var pluginDefinition = {
     id: "roche-music-player",
     name: "网易云音乐",
     version: PLUGIN_VERSION,
@@ -3735,15 +3926,9 @@
             }
             function playBest(best) {
               var idx = addToPlaylist(best);
-              playSong(best, idx);
-              return {
-                success: true,
-                song: best.name,
-                artist: best.artist,
-                platform: best.platform,
-                instrumental: !!best.instrumental,
-              };
+              return playSong(best, idx);
             }
+
             // 网易云个人账号搜索（走自部署 API 或 MCP 代理）
             if (!STATE.cookie) {
               return Promise.resolve({
@@ -4149,10 +4334,37 @@
     },
 
     onLoad: function (roche) {
-      initializePlugin(roche);
+      runtimeActive = true;
+      latestHost = roche;
+      STATE.roche = isolatedHost(roche);
     },
     onUnload: function () {
       disposePlugin();
     },
+  };
+  pluginDefinition.chat.promptOnly +=
+    "需要真实点歌时，先确定具体歌名和歌手，再调用 play_song 工具。只有工具返回 success:true 才能说已经开始播放；needsTap 表示需要用户点击播放，失败时简短说明工具给出的原因。不要用“已为你播放”代替实际工具调用。";
+  pluginDefinition.chat.tools.forEach(function (tool) {
+    var execute = tool.execute;
+    tool.execute = async function (args, ctx, roche) {
+      var generation = runtimeGeneration;
+      if (!runtimeActive) return { success: false, message: "音乐插件已停用" };
+      try {
+        await ensureAccountReady(roche || latestHost);
+        if (!runtimeActive || generation !== runtimeGeneration)
+          return {
+            success: false,
+            cancelled: true,
+            message: "音乐插件状态已改变",
+          };
+        return await execute(args, ctx, STATE.roche);
+      } catch (error) {
+        return {
+          success: false,
+          message: error.message || "音乐工具初始化失败",
+        };
+      }
+    };
   });
+  window.RochePlugin.register(pluginDefinition);
 })();

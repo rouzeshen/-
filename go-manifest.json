@@ -1,0 +1,19 @@
+{
+  "id": "roche-go",
+  "name": "手谈 · 围棋",
+  "version": "1.1.0",
+  "description": "角色陪你下围棋，只聊棋局；每手一次请求落子与说话，支持可编辑的对局记忆总结。",
+  "author": "rouzeshen",
+  "entry": "https://raw.githubusercontent.com/rouzeshen/-/main/roche-go.js",
+  "hash": "",
+  "permissions": [
+    "persona:read",
+    "character:read",
+    "memory:read",
+    "worldbook:read",
+    "ai:chat",
+    "storage",
+    "ui",
+    "memory:write"
+  ]
+}

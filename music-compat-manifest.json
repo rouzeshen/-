@@ -1,8 +1,8 @@
 {
   "id": "roche-music-player",
   "name": "网易云音乐",
-  "version": "3.0.1",
-  "description": "基于朋友3.0.0的共存排查版：不接管宿主媒体会话或全局日志，停用完整清理，整首歌词与播放状态注入",
+  "version": "3.0.3",
+  "description": "角色点歌修复：调用前加载独立账号设置，实际播放成功后回报；保留通知隔离与全文歌词",
   "author": "原作者 Roche；兼容修订 rouzeshen",
   "entry": "https://raw.githubusercontent.com/rouzeshen/-/main/music-player-compat.js",
   "hash": "",

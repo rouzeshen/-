@@ -1,4 +1,4 @@
-/* Roche 一起看电影 1.6.5 · 记忆时间显示统一 */
+/* Roche 一起看电影 1.6.6 · 观影记忆时间范围 */
 (() => {
   'use strict';
   const ID = 'tanglan-watch-together';
@@ -7,13 +7,22 @@
   const label = x => x?.handle || x?.name || x?.displayName || '角色';
   const cap = (x, n = 8000) => text(x).slice(0, n);
   const uid = () => globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
-  // Remember the actual save instant, but display it in the same UTC+8 timezone as Roche chats.
-  const memoryWhen = (instant = new Date()) => {
+  // Distinguish the REAL viewing-session interval from the time a memory was saved.
+  // All times are absolute Unix milliseconds; the string is only a display/storage label.
+  const memoryWhen = (instant = Date.now()) => {
     const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {
       timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit',
-      hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23'
-    }).formatToParts(instant).filter(part => part.type !== 'literal').map(part => [part.type, part.value]));
-    return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second} (Asia/Shanghai)`;
+      weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+    }).formatToParts(new Date(instant)).filter(part => part.type !== 'literal').map(part => [part.type, part.value]));
+    const weekday = {Sun:'周日',Mon:'周一',Tue:'周二',Wed:'周三',Thu:'周四',Fri:'周五',Sat:'周六'}[parts.weekday];
+    if (!weekday) throw Error('无法识别观影记忆的星期。');
+    return `${parts.year}-${parts.month}-${parts.day} ${weekday} ${parts.hour}:${parts.minute} (Asia/Shanghai)`;
+  };
+  const memoryRange = (start, end) => {
+    // Historical records have no start wall-clock timestamp. Never invent one
+    // from the movie's playback position or the record's last update time.
+    const valid = Number.isFinite(start) && Number.isFinite(end) && start>0 && end>=start;
+    return valid ? memoryWhen(start)+' -> '+memoryWhen(end) : memoryWhen(end>0?end:Date.now());
   };
   const clock = n => { n = Math.max(0, Math.floor(Number(n) || 0)); return `${Math.floor(n / 3600) ? Math.floor(n / 3600) + ':' : ''}${String(Math.floor(n / 60) % 60).padStart(2, '0')}:${String(n % 60).padStart(2, '0')}`; };
   const stamp = s => { const a = s.trim().replace(',', '.').split(':').map(Number); return a.length === 3 ? a[0] * 3600 + a[1] * 60 + a[2] : a.length === 2 ? a[0] * 60 + a[1] : NaN; };
@@ -185,6 +194,7 @@
     let chars = [], conversations = [], records = [], cues = [], frames = [], lastFrame = 0, lastSaved = 0, lastAsk = 0, lastPause = 0, sceneCut = false;
     let currentId = uid(), messages = [], notes = [], remembered = {}, memoryDrafts = {}, memoryReceipts = {}, savedTicket = '', queue = Promise.resolve(), failureCount = 0;
     let aiRequests = 0, aiCountPartial = false;
+    let viewingStartedAt = 0, viewingEndedAt = 0; // Real-world wall-clock interval, not movie progress.
     const networkControllers = new Set();
     const timers = new Set(), listeners = [], disposers = [];
     let messageEditor = null, pressGesture = null, memorySummaryToken = 0;
@@ -337,7 +347,7 @@
     function saveSettings() { if (ready && !restoring) { const s = settings(); write('settings-v1', s); } }
     function snapshot() {
       if (!selectedSource && !$('title').value.trim()) return null;
-      return { id: currentId, title: $('title').value.trim() || '未命名影片', source: selectedSource ? { ...selectedSource, kind: selectedSource.resumeLocal ? 'local' : selectedSource.kind, url: selectedSource.kind === 'local' || selectedSource.resumeLocal ? '' : selectedSource.url } : { kind: 'manual', url: '' }, sourceKey, time: time(), progressKind:selectedSource?.kind==='embed'?'estimated':selectedSource?.kind==='manual'?'manual':'player', updatedAt: Date.now(), charIds: selected().map(c => text(c.id)), characterNames: selected().map(label), conversationIds: settings().conversationIds, messages: messages.slice(-160), cues, notes: notes.slice(-100), remembered, memoryDrafts, memoryReceipts, subtitleName: $('subsFile').dataset.name || '', offset: Number($('offset').value) || 0, scene: $('scene').value, ticket: savedTicket, aiRequests, aiCountPartial };
+      return { id: currentId, title: $('title').value.trim() || '未命名影片', source: selectedSource ? { ...selectedSource, kind: selectedSource.resumeLocal ? 'local' : selectedSource.kind, url: selectedSource.kind === 'local' || selectedSource.resumeLocal ? '' : selectedSource.url } : { kind: 'manual', url: '' }, sourceKey, time: time(), progressKind:selectedSource?.kind==='embed'?'estimated':selectedSource?.kind==='manual'?'manual':'player', viewingStartedAt, viewingEndedAt, updatedAt: Date.now(), charIds: selected().map(c => text(c.id)), characterNames: selected().map(label), conversationIds: settings().conversationIds, messages: messages.slice(-160), cues, notes: notes.slice(-100), remembered, memoryDrafts, memoryReceipts, subtitleName: $('subsFile').dataset.name || '', offset: Number($('offset').value) || 0, scene: $('scene').value, ticket: savedTicket, aiRequests, aiCountPartial };
     }
     function persist() {
       if (!ready) return Promise.resolve();
@@ -459,7 +469,7 @@
       action('url').disabled = action('openEmbed').disabled = false;
       epoch++; busy = false; action('cancel').hidden = true; action('send').disabled = action('ask').disabled = false;
       selectedSource = null; stopMedia(); selectedSource = src;
-      if (!restore) { currentId = uid(); aiRequests = 0; aiCountPartial = false; messages = []; notes = []; remembered = {}; memoryDrafts = {}; memoryReceipts = {}; memorySummaryToken++; resumeAt = 0; cues = []; $('scene').value = ''; savedTicket = ''; $('ticket').replaceChildren(); $('subsFile').dataset.name = ''; $('subtitle').textContent = ''; $('offset').value = '0'; renderChat(); }
+      if (!restore) { currentId = uid(); viewingStartedAt = Date.now(); viewingEndedAt = 0; aiRequests = 0; aiCountPartial = false; messages = []; notes = []; remembered = {}; memoryDrafts = {}; memoryReceipts = {}; memorySummaryToken++; resumeAt = 0; cues = []; $('scene').value = ''; savedTicket = ''; $('ticket').replaceChildren(); $('subsFile').dataset.name = ''; $('subtitle').textContent = ''; $('offset').value = '0'; renderChat(); }
       estimateBase=restore?resumeAt:0;estimateAt=performance.now();estimateRunning=false;estimateTouched=false;$('estimateRate').value='1';$('estimateRate').dataset.last='1';
       sourceKey = src.key || src.url;
       video.hidden = !['direct','local','bili'].includes(src.kind); $('embed').hidden = src.kind !== 'embed'; $('empty').hidden = src.kind !== 'manual';
@@ -1019,7 +1029,7 @@ const CR=C6['length']>0x1,CD=C6['map'](Cw=>Cw['name']),CL=CP['map'](Cw=>('me'===
               const payload={summaryText:summary,action:summary};
               let result;
               if(id!==null)result=await roche.memory.update(id,payload);
-              else result=await roche.memory.write({conversationId,...payload,who:[draft.userName,...draft.names],when:memoryWhen(),where:'一起看电影插件',source:'plugin'});
+              else result=await roche.memory.write({conversationId,...payload,who:[draft.userName,...draft.names],when:memoryRange(viewingStartedAt,viewingEndedAt || Date.now()),where:'一起看电影插件',source:'plugin'});
               externalSaved=true;if(current()){save.textContent='已写入';save.disabled=true;}
               const receipt={memoryId:id??memoryIdOf(result),summary,fingerprint:draft.fingerprint,savedAt:Date.now()};
               // A completed external write is recorded even if the user left the viewing.
@@ -1072,7 +1082,7 @@ const CR=C6['length']>0x1,CD=C6['map'](Cw=>Cw['name']),CL=CP['map'](Cw=>('me'===
         let prepared = null;
         if (r.source?.url && r.source.kind !== 'local') prepared = await prepareSource(r.source.url,r.source.kind === 'embed',() => alive && load === loadEpoch);
         if(!alive || load !== loadEpoch) return;
-        currentId = r.id; messages = r.messages || []; cues = r.cues || []; notes = r.notes || []; remembered = r.remembered || {}; memoryDrafts = r.memoryDrafts || {}; memoryReceipts = r.memoryReceipts || {}; memorySummaryToken++;
+        currentId = r.id; viewingStartedAt = r.viewingStartedAt || 0; viewingEndedAt = r.viewingEndedAt || 0; messages = r.messages || []; cues = r.cues || []; notes = r.notes || []; remembered = r.remembered || {}; memoryDrafts = r.memoryDrafts || {}; memoryReceipts = r.memoryReceipts || {}; memorySummaryToken++;
         aiRequests = Math.max(0,Number(r.aiRequests)||0); aiCountPartial = r.aiCountPartial === true || !Number.isFinite(r.aiRequests);
         resumeAt = Math.max(0, Number(r.time) || 0);
         $('title').value = r.title; $('scene').value = r.scene || ''; $('offset').value = r.offset || 0; savedTicket = r.ticket || ''; $('ticket').textContent = savedTicket;
@@ -1095,7 +1105,7 @@ const CR=C6['length']>0x1,CD=C6['map'](Cw=>Cw['name']),CL=CP['map'](Cw=>('me'===
         if (a === 'setup') { await leaveFullscreen(); showSetup('peopleSetup'); }
         if (a === 'enterRoom') { if (!selected().length) { say('先选一位陪看角色。', true); showSetup('peopleSetup'); return; } if (!selectedSource) { if (!$('title').value.trim()) { say('先填写影片名称或选一部影片。',true); showSetup('sourceSetup'); return; } setSource({ kind: 'manual', url: '' }, true); } else showRoom(); }
         if (a === 'roomNote') { showSetup('scene'); }
-        if (a === 'roomEnd') { await leaveFullscreen(); if (busy) cancel(); pauseEstimate(); video.pause(); if (selectedSource?.kind === 'embed') $('embed').removeAttribute('src'); $('auto').value = 'off'; saveSettings(); await persist(); showSetup('ticket'); action('ticket').click(); }
+        if (a === 'roomEnd') { if (!viewingEndedAt) viewingEndedAt = Date.now(); await leaveFullscreen(); if (busy) cancel(); pauseEstimate(); video.pause(); if (selectedSource?.kind === 'embed') $('embed').removeAttribute('src'); $('auto').value = 'off'; saveSettings(); await persist(); showSetup('ticket'); action('ticket').click(); }
         if (a === 'back') { await persist(); await roche.ui.closeApp(); }
         if (a === 'pick') $('file').click();
         if (a === 'url') {const parsed=mediaSource($('url').value);await openURL($('url').value,parsed.kind==='bili-link');}
@@ -1125,6 +1135,7 @@ const CR=C6['length']>0x1,CD=C6['map'](Cw=>Cw['name']),CL=CP['map'](Cw=>('me'===
         if (a === 'note') { const s = $('scene').value.trim(); if (!s) throw Error('先写一点这个片段发生了什么。'); notes.push({ time: time(), text: s }); await persist(); say('记下了这一刻。'); }
         if (a === 'ticket') {
           if (!$('title').value.trim() && !selectedSource) throw Error('先开始一场电影吧。');
+          if (!viewingEndedAt) viewingEndedAt = Date.now();
           clearPreview();pauseEstimate(); video.pause(); $('auto').value = 'off'; saveSettings();
           const ticket = make('div', null, 'ticket'); ticket.append(make('strong', '🎞 ' + ($('title').value.trim() || '今晚的影片')), make('p', `${selected().map(label).join('、') || '我'} · 一起看到 ${clock(time())}`), make('small', new Date().toLocaleString()));
           const last = messages.filter(x => x.role === 'assistant').at(-1); if (last) ticket.append(make('p', `“${cap(last.text, 180)}”`));
@@ -1160,7 +1171,7 @@ const CR=C6['length']>0x1,CD=C6['map'](Cw=>Cw['name']),CL=CP['map'](Cw=>('me'===
       else if (r.source?.url) { try { source = mediaSource(cap(r.source.url, 4000),r.source.kind === 'embed'); if(source.kind === 'bili-link') source = {kind:'bili',url:source.url,bvid:source.bvid,page:source.page,provider:'B站'}; } catch { /* skip invalid URLs */ } }
       const chars = Array.isArray(r.charIds) ? r.charIds.map(x => cap(x, 200)).slice(0, 4) : [];
       const convs = Object.fromEntries(Object.entries(r.conversationIds || {}).slice(0, 100).map(([k,v]) => [cap(k,200), cap(v,200)]));
-      return { id: cap(r.id, 200), title: cap(r.title,160), source, sourceKey: cap(r.sourceKey,1000), time: Math.max(0, Math.min(86400, Number(r.time) || 0)), updatedAt: Number(r.updatedAt) || Date.now(), charIds: chars, characterNames: (Array.isArray(r.characterNames) ? r.characterNames : []).map(x => cap(x,100)).slice(0,4), conversationIds: convs, messages: (Array.isArray(r.messages) ? r.messages : []).slice(-160).filter(m => m && typeof m === 'object').map(m => ({ id: uid(), role: m.role === 'user' ? 'user' : 'assistant', name: cap(m.name,100), text: cap(m.text,4000), time: Math.max(0, Number(m.time) || 0), characterId: cap(m.characterId,200) })), cues: (Array.isArray(r.cues) ? r.cues : []).filter(c => c && Number.isFinite(c.start) && Number.isFinite(c.end) && c.start >= 0 && c.end > c.start).slice(0,60000).map(c => ({ start: c.start, end: c.end, text: cap(c.text,3000) })).sort((a,b) => a.start-b.start), notes: (Array.isArray(r.notes) ? r.notes : []).slice(-100).filter(n => n && typeof n === 'object').map(n => ({ time: Math.max(0,Number(n.time)||0), text: cap(n.text,2400) })), remembered: Object.fromEntries(Object.entries(r.remembered || {}).filter(([k,v])=>typeof k==='string'&&v===true).slice(0,100)), memoryDrafts:cleanMemoryMap(r.memoryDrafts), memoryReceipts:cleanMemoryMap(r.memoryReceipts,true), subtitleName: cap(r.subtitleName,300), offset: Number(r.offset)||0, scene: cap(r.scene,2400), ticket: cap(r.ticket,2500), aiRequests: Math.max(0,Math.min(1e9,Number(r.aiRequests)||0)), aiCountPartial: r.aiCountPartial === true || !Number.isFinite(r.aiRequests) };
+      return { id: cap(r.id, 200), title: cap(r.title,160), source, sourceKey: cap(r.sourceKey,1000), time: Math.max(0, Math.min(86400, Number(r.time) || 0)), updatedAt: Number(r.updatedAt) || Date.now(), charIds: chars, characterNames: (Array.isArray(r.characterNames) ? r.characterNames : []).map(x => cap(x,100)).slice(0,4), conversationIds: convs, messages: (Array.isArray(r.messages) ? r.messages : []).slice(-160).filter(m => m && typeof m === 'object').map(m => ({ id: uid(), role: m.role === 'user' ? 'user' : 'assistant', name: cap(m.name,100), text: cap(m.text,4000), time: Math.max(0, Number(m.time) || 0), characterId: cap(m.characterId,200) })), cues: (Array.isArray(r.cues) ? r.cues : []).filter(c => c && Number.isFinite(c.start) && Number.isFinite(c.end) && c.start >= 0 && c.end > c.start).slice(0,60000).map(c => ({ start: c.start, end: c.end, text: cap(c.text,3000) })).sort((a,b) => a.start-b.start), notes: (Array.isArray(r.notes) ? r.notes : []).slice(-100).filter(n => n && typeof n === 'object').map(n => ({ time: Math.max(0,Number(n.time)||0), text: cap(n.text,2400) })), remembered: Object.fromEntries(Object.entries(r.remembered || {}).filter(([k,v])=>typeof k==='string'&&v===true).slice(0,100)), memoryDrafts:cleanMemoryMap(r.memoryDrafts), memoryReceipts:cleanMemoryMap(r.memoryReceipts,true), subtitleName: cap(r.subtitleName,300), offset: Number(r.offset)||0, scene: cap(r.scene,2400), ticket: cap(r.ticket,2500), viewingStartedAt: Number.isFinite(r.viewingStartedAt)&&r.viewingStartedAt>0?r.viewingStartedAt:0, viewingEndedAt: Number.isFinite(r.viewingEndedAt)&&r.viewingEndedAt>0?r.viewingEndedAt:0, aiRequests: Math.max(0,Math.min(1e9,Number(r.aiRequests)||0)), aiCountPartial: r.aiCountPartial === true || !Number.isFinite(r.aiRequests) };
     }
     on($('importFile'), 'change', async () => {
       const f = $('importFile').files?.[0]; if (!f) return;
@@ -1242,7 +1253,7 @@ const CR=C6['length']>0x1,CD=C6['map'](Cw=>Cw['name']),CL=CP['map'](Cw=>('me'===
     finally { if (alive) { ready = true; for (const el of root.querySelectorAll('button,input,textarea,select')) el.disabled = false; } }
   }
   const plugin = {
-    id: ID, name: '一起看电影', version: '1.6.5',
+    id: ID, name: '一起看电影', version: '1.6.6',
     apps: [{ id: ID + '-room', name: '一起看电影', icon: 'movie', iconImage: '', mount, async unmount(container) { const state = instances.get(container); if (state) await state.dispose(); container.replaceChildren(); } }]
   };
   if (!window.RochePlugin?.register) throw Error('请通过 Roche 插件管理安装此文件。');

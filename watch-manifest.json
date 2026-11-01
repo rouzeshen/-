@@ -1,7 +1,7 @@
 {
   "id": "tanglan-watch-together",
   "name": "一起看电影",
-  "version": "1.6.1",
+  "version": "1.6.2",
   "description": "同屏观影与多帧画面，支持可编辑的观影总结写入记忆、长按编辑删除、短链与自动开口。",
   "author": "唐蓝",
   "entry": "https://raw.githubusercontent.com/rouzeshen/-/main/watch-together.js",

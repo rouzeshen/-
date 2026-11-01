@@ -1,4 +1,4 @@
-/* Roche 一起看电影 1.6.3 · B站 pvdata 时间索引兼容 */
+/* Roche 一起看电影 1.6.4 · B站快照索引占位项修正 */
 (() => {
   'use strict';
   const ID = 'tanglan-watch-together';
@@ -614,13 +614,18 @@
     function normalizePreview(raw,direct=false){
       const columns=Number(direct?raw.img_x_len:raw.columns),rows=Number(direct?raw.img_y_len:raw.rows),width=Number(direct?raw.img_x_size:raw.width),height=Number(direct?raw.img_y_size:raw.height);
       if(![columns,rows,width,height].every(Number.isInteger)||columns<1||columns>100||rows<1||rows>100||width<1||height<1||width>2048||height>2048||columns*width*rows*height>24000000)throw Error('预览图尺寸无效。');
-      const index=Array.isArray(raw.index)?raw.index.slice(0,30000).map(Number):[];
+      // B站原生时间表首项是占位符，不对应图片；中转的已标准化时间表不动。
+      const timeline=Array.isArray(raw.index)?raw.index.slice(0,30001).map(Number):[];
+      const index=direct&&timeline.length>1&&timeline[0]===0?timeline.slice(1):timeline;
       const images=direct?(Array.isArray(raw.image)?raw.image:[]).slice(0,300).map(value=>{
         const u=new URL(String(value).startsWith('//')?'https:'+value:value);
         if(u.protocol!=='https:'||u.username||u.password||!(u.hostname==='hdslb.com'||u.hostname.endsWith('.hdslb.com')))throw Error('预览图地址不受支持。');return u.href;
       }):null;
       const sheets=direct?images.length:Number(raw.sheets);
-      if(!Number.isInteger(sheets)||sheets<1||sheets>300||!index.length||index.length>sheets*columns*rows||index.some((x,i)=>!Number.isFinite(x)||x<0||(i&&x<index[i-1])))throw Error('没有可用的预览时间索引。');
+      if(!Number.isInteger(sheets)||sheets<1||sheets>300)throw Error('B站预览图片列表为空或异常。');
+      if(!index.length)throw Error('B站没有返回可用的预览时间索引。');
+      if(index.length>sheets*columns*rows)throw Error('B站预览索引数量超出拼图容量：'+index.length+'/'+(sheets*columns*rows)+'。');
+      if(index.some((x,i)=>!Number.isFinite(x)||x<0||(i&&x<index[i-1])))throw Error('B站预览时间索引数值或顺序异常。');
       return {index,columns,rows,width,height,sheets,images,direct};
     }
     let previewTransport='尚未请求',nativeHttpInstance=null;
@@ -1229,7 +1234,7 @@ const CR=C6['length']>0x1,CD=C6['map'](Cw=>Cw['name']),CL=CP['map'](Cw=>('me'===
     finally { if (alive) { ready = true; for (const el of root.querySelectorAll('button,input,textarea,select')) el.disabled = false; } }
   }
   const plugin = {
-    id: ID, name: '一起看电影', version: '1.6.3',
+    id: ID, name: '一起看电影', version: '1.6.4',
     apps: [{ id: ID + '-room', name: '一起看电影', icon: 'movie', iconImage: '', mount, async unmount(container) { const state = instances.get(container); if (state) await state.dispose(); container.replaceChildren(); } }]
   };
   if (!window.RochePlugin?.register) throw Error('请通过 Roche 插件管理安装此文件。');

@@ -1,0 +1,6 @@
+{
+  "id": "roche-reply-alarm",
+  "name": "角色提醒与叫起床",
+  "version": "0.2.2",
+  "entry": "https://raw.githubusercontent.com/rouzeshen/-/main/reply-alarm-settings.js"
+}

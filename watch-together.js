@@ -1,4 +1,4 @@
-/* Roche 一起看电影 1.5.1 · 无登录版 */
+/* Roche 一起看电影 1.6.2 · 原生取帧诊断版 */
 (() => {
   'use strict';
   const ID = 'tanglan-watch-together';
@@ -671,16 +671,25 @@
     async function loadPreviewMeta(id,valid){
       const identity=id.bvid+':'+id.page;
       if(previewMeta&&previewIdentity===identity)return previewMeta;
-      let data,error;
+      let data,error,directTransport='尚未开始';
       try{
         const pages=await previewFetch('https://api.bilibili.com/x/player/pagelist?bvid='+encodeURIComponent(id.bvid));if(!valid())return null;
         const cid=Number(pages?.[id.page-1]?.cid);if(!Number.isSafeInteger(cid)||cid<=0)throw Error('没有找到分P。');
         data=normalizePreview(await previewFetch('https://api.bilibili.com/x/player/videoshot?bvid='+encodeURIComponent(id.bvid)+'&cid='+cid+'&index=1'),true);
-      }catch(e){error=e;}
+      }catch(e){error=e;directTransport=previewTransport;}
       if(!valid())return null;
       if(!data){
-        if(!$('bridgeURL').value.trim())throw Error('手机直连画面接口失败；可配置画面中转再测试。'+cap(error?.message,100));
-        previewTransport='已配置的画面中转';const result=await bridgeRequest('storyboard',{bvid:id.bvid,p:id.page});if(!valid())return null;data=normalizePreview(result.body);
+        // Diagnostics only: preserve the existing native->bridge fallback and four-frame behavior.
+        const directDetail='原始取图['+directTransport+']：'+cap(error?.message||'未知错误',85);
+        if(!$('bridgeURL').value.trim())throw Error(directDetail+'；未配置画面中转。');
+        previewTransport='已配置的画面中转';
+        try{
+          const result=await bridgeRequest('storyboard',{bvid:id.bvid,p:id.page});
+          if(!valid())return null;
+          data=normalizePreview(result.body);
+        }catch(bridgeError){
+          throw Error(directDetail+'；中转：'+cap(bridgeError?.message||bridgeError,85));
+        }
       }
       if(!valid())return null;previewIdentity=identity;previewMeta=data;return data;
     }
@@ -1193,7 +1202,7 @@ const CR=C6['length']>0x1,CD=C6['map'](Cw=>Cw['name']),CL=CP['map'](Cw=>('me'===
     finally { if (alive) { ready = true; for (const el of root.querySelectorAll('button,input,textarea,select')) el.disabled = false; } }
   }
   const plugin = {
-    id: ID, name: '一起看电影', version: '1.6.1',
+    id: ID, name: '一起看电影', version: '1.6.2',
     apps: [{ id: ID + '-room', name: '一起看电影', icon: 'movie', iconImage: '', mount, async unmount(container) { const state = instances.get(container); if (state) await state.dispose(); container.replaceChildren(); } }]
   };
   if (!window.RochePlugin?.register) throw Error('请通过 Roche 插件管理安装此文件。');

@@ -1,4 +1,4 @@
-/* Roche 一起看电影 1.6.4 · B站快照索引占位项修正 */
+/* Roche 一起看电影 1.6.5 · 记忆时间显示统一 */
 (() => {
   'use strict';
   const ID = 'tanglan-watch-together';
@@ -7,6 +7,14 @@
   const label = x => x?.handle || x?.name || x?.displayName || '角色';
   const cap = (x, n = 8000) => text(x).slice(0, n);
   const uid = () => globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
+  // Remember the actual save instant, but display it in the same UTC+8 timezone as Roche chats.
+  const memoryWhen = (instant = new Date()) => {
+    const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23'
+    }).formatToParts(instant).filter(part => part.type !== 'literal').map(part => [part.type, part.value]));
+    return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second} (Asia/Shanghai)`;
+  };
   const clock = n => { n = Math.max(0, Math.floor(Number(n) || 0)); return `${Math.floor(n / 3600) ? Math.floor(n / 3600) + ':' : ''}${String(Math.floor(n / 60) % 60).padStart(2, '0')}:${String(n % 60).padStart(2, '0')}`; };
   const stamp = s => { const a = s.trim().replace(',', '.').split(':').map(Number); return a.length === 3 ? a[0] * 3600 + a[1] * 60 + a[2] : a.length === 2 ? a[0] * 60 + a[1] : NaN; };
   function subtitles(raw, filename) {
@@ -1011,7 +1019,7 @@ const CR=C6['length']>0x1,CD=C6['map'](Cw=>Cw['name']),CL=CP['map'](Cw=>('me'===
               const payload={summaryText:summary,action:summary};
               let result;
               if(id!==null)result=await roche.memory.update(id,payload);
-              else result=await roche.memory.write({conversationId,...payload,who:[draft.userName,...draft.names],when:new Date().toISOString(),where:'一起看电影插件',source:'plugin'});
+              else result=await roche.memory.write({conversationId,...payload,who:[draft.userName,...draft.names],when:memoryWhen(),where:'一起看电影插件',source:'plugin'});
               externalSaved=true;if(current()){save.textContent='已写入';save.disabled=true;}
               const receipt={memoryId:id??memoryIdOf(result),summary,fingerprint:draft.fingerprint,savedAt:Date.now()};
               // A completed external write is recorded even if the user left the viewing.
@@ -1234,7 +1242,7 @@ const CR=C6['length']>0x1,CD=C6['map'](Cw=>Cw['name']),CL=CP['map'](Cw=>('me'===
     finally { if (alive) { ready = true; for (const el of root.querySelectorAll('button,input,textarea,select')) el.disabled = false; } }
   }
   const plugin = {
-    id: ID, name: '一起看电影', version: '1.6.4',
+    id: ID, name: '一起看电影', version: '1.6.5',
     apps: [{ id: ID + '-room', name: '一起看电影', icon: 'movie', iconImage: '', mount, async unmount(container) { const state = instances.get(container); if (state) await state.dispose(); container.replaceChildren(); } }]
   };
   if (!window.RochePlugin?.register) throw Error('请通过 Roche 插件管理安装此文件。');

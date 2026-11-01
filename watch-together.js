@@ -1,4 +1,4 @@
-/* Roche 一起看电影 1.6.2 · 无登录版 */
+/* Roche 一起看电影 1.5.1 · 无登录版 */
 (() => {
   'use strict';
   const ID = 'tanglan-watch-together';
@@ -177,7 +177,6 @@
     let chars = [], conversations = [], records = [], cues = [], frames = [], lastFrame = 0, lastSaved = 0, lastAsk = 0, lastPause = 0, sceneCut = false;
     let currentId = uid(), messages = [], notes = [], remembered = {}, memoryDrafts = {}, memoryReceipts = {}, savedTicket = '', queue = Promise.resolve(), failureCount = 0;
     let aiRequests = 0, aiCountPartial = false;
-    let uploadedShots = [], previewPauseUntil = 0; // Screenshot data stays in memory only.
     const networkControllers = new Set();
     const timers = new Set(), listeners = [], disposers = [];
     let messageEditor = null, pressGesture = null, memorySummaryToken = 0;
@@ -221,9 +220,7 @@
     room.querySelector('.room-meta').append(autoSelect); autoLabel.remove();
     room.querySelector('.room-video').append(q('stage'));
     const actionRow = room.querySelector('.room-actions');
-    const shotButton = document.createElement('button'); shotButton.dataset.a='shot';shotButton.textContent='上传画面';
-    const shotInput = document.createElement('input');shotInput.type='file';shotInput.accept='image/jpeg,image/png,image/webp';shotInput.dataset.n='shotFile';shotInput.hidden=true;
-    actionRow.append(btn('ask'),shotButton,btn('subs'),shotInput);
+    actionRow.append(btn('ask'), btn('subs'));
     room.querySelector('.room-tools').append(q('subsFile'));
     const moreActions = room.querySelector('[data-n=roomMoreActions]');
     for (const name of ['fullscreen','external','manual','clearSubs']) moreActions.append(btn(name));
@@ -288,7 +285,7 @@
       $('requestCount').textContent = `本场 AI 请求 ${aiRequests} 次${aiCountPartial ? '（从本次更新后计）' : ''}`;
       $('requestCount').title = '每位角色每次实际发起的 AI 请求记 1 次，失败或取消等待也计入；读记忆和播放中转不计入。';
       action('biliNative').hidden = !selectedSource?.url || !/https?:\/\/(?:www\.|m\.)?bilibili\.com\//i.test(selectedSource.url) || selectedSource.kind === 'bili';
-      $('roomAwareness').textContent = selectedSource?.kind === 'bili' ? video.error ? 'B站 · 播放连接失败' : video.readyState < 1 ? 'B站 · 等待播放器连接' : video.paused ? 'B站 · 自动同步（暂停）' : 'B站 · 自动同步' : embedded ? (estimateRunning ? '原站播放 · 估算计时中' : '原站播放 · 估算计时暂停')+($('vision').checked&&uploadedShots.length?' · 已上传截图':$('vision').checked&&frames.some(f=>f.origin?.startsWith('B站'))?' · 预览帧已取':'') : frames.length && $('vision').checked ? '看得到画面' : cues.length ? '跟随字幕' : $('vision').checked && selectedSource?.kind !== 'manual' ? '等待读取画面' : '按你的描述陪看';
+      $('roomAwareness').textContent = selectedSource?.kind === 'bili' ? video.error ? 'B站 · 播放连接失败' : video.readyState < 1 ? 'B站 · 等待播放器连接' : video.paused ? 'B站 · 自动同步（暂停）' : 'B站 · 自动同步' : embedded ? (estimateRunning ? '原站播放 · 估算计时中' : '原站播放 · 估算计时暂停')+($('vision').checked&&frames.some(f=>f.origin?.startsWith('B站'))?' · 预览帧已取':'') : frames.length && $('vision').checked ? '看得到画面' : cues.length ? '跟随字幕' : $('vision').checked && selectedSource?.kind !== 'manual' ? '等待读取画面' : '按你的描述陪看';
       action('ask').textContent = names.length === 1 ? '问问 ' + names[0] + ' 这段' : names.length ? '听听大家怎么说' : '先选择陪看角色';
       const hint = $('roomHint');
       if (hint) { hint.hidden = !!messages.length; hint.textContent = !names.length ? '先点左上角「设置」邀请角色，再回来边看边聊。' : '和 ' + names.join('、') + ' 一起坐好了。回车可以连续发送几条话，点右下角「回复」后 TA 才会回应。'; }
@@ -447,7 +444,7 @@
     function stopMedia() {
       clearPreview();pauseEstimate(); video.pause(); video.removeAttribute('src'); video.load(); $('embed').removeAttribute('src');
       if (objectURL) { URL.revokeObjectURL(objectURL); objectURL = ''; }
-      frames = []; uploadedShots = []; sceneCut = false; lastFrame = 0;
+      frames = []; sceneCut = false; lastFrame = 0;
     }
     function setSource(src, restore = false) {
       closeMessageEditor(false);
@@ -640,7 +637,6 @@
         const aborted=new Promise((_,reject)=>{onAbort=()=>reject(Error(alive?'手机原生取图超时或已取消。':'插件已关闭。'));controller.signal.addEventListener('abort',onAbort,{once:true});timer=setTimeout(()=>controller.abort(),20000);timers.add(timer);});
         const response=await Promise.race([http.request({url:target.href,method:'GET',headers:{Accept:options.image?'image/jpeg,image/png,image/webp':'application/json','User-Agent':'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',Referer:'https://www.bilibili.com/'},responseType:options.image?'arraybuffer':'json',connectTimeout:10000,readTimeout:15000,disableRedirects:true}),aborted]);
         const status=Number(response?.status);
-        if(status===412){previewPauseUntil=Date.now()+5*60*1000;throw Error('B站拒绝了自动画面请求（HTTP 412，可能是风控或限流）。请上传画面截图或稍后重试。');}
         if(status<200||status>=300||!Number.isInteger(status))throw Error('手机原生画面接口返回 HTTP '+(status||'未知')+'。');
         if(options.image){
           const headers=response.headers||{},name=Object.keys(headers).find(k=>k.toLowerCase()==='content-type'),type=String(name?headers[name]:'');
@@ -663,7 +659,6 @@
       const timer=setTimeout(()=>controller.abort(),options.timeout||8000);timers.add(timer);
       try{
         const response=await fetch(url,{credentials:'omit',referrerPolicy:'no-referrer',signal:controller.signal,headers:options.headers||{}});
-        if(response.status===412){previewPauseUntil=Date.now()+5*60*1000;throw Error('B站拒绝了自动画面请求（HTTP 412，可能是风控或限流）。请上传画面截图或稍后重试。');}
         if(!response.ok)throw Error('画面请求返回 HTTP '+response.status+'。');
         if(options.image){
           const type=response.headers.get('Content-Type')||'';if(!/^image\/(jpeg|png|webp)(?:;|$)/i.test(type))throw Error('接口没有返回图片。');
@@ -707,10 +702,7 @@
     }
     async function collectShots(t,valid){
       if(!$('vision').checked)return [];
-      const uploaded=uploadedShots.filter(f=>f.time<=t+1&&t-f.time<=180).slice(-3);
-      if(uploaded.length){showShotPreview(uploaded);visionFailure='';visionMessage('已使用你上传的 '+uploaded.length+' 张画面（不是实时截图，也不包含声音）。');return uploaded;}
       if(!video.hidden){capture();const shots=frames.filter(f=>f.time<=t&&t-f.time<=30).map(f=>({time:f.time,data:f.data,origin:'当前播放器截图'}));showShotPreview(shots);visionMessage(shots.length?'已读取 '+shots.length+' 张播放器截图：'+shots.map(s=>clock(s.time)).join('、')+'。':'尚未获取可用截图。',!shots.length);return shots;}
-      if(Date.now()<previewPauseUntil && !$('bridgeURL').value.trim()){visionFailure='B站 HTTP 412 请求冷却中';visionMessage('B站暂时拒绝自动取图（HTTP 412）。可以上传当前画面截图；约5分钟后再测试自动取帧。',true);return [];}
       const generation=previewGeneration,source=selectedSource,id=biliIdentity(source);if(!id){visionMessage('当前来源无法自动取图，可使用字幕或画面描述。',true);visionFailure='当前来源无法自动取图';return [];}
       const current=()=>valid()&&alive&&generation===previewGeneration&&selectedSource===source&&$('vision').checked;
       visionMessage('正在获取 B站预览帧…'+(getNativeHTTP()?'优先使用手机原生HTTP。':'未检测到可调用的原生HTTP接口，使用直连或中转。'));
@@ -822,11 +814,6 @@ const CR=C6['length']>0x1,CD=C6['map'](Cw=>Cw['name']),CL=CP['map'](Cw=>('me'===
       // and player frame sampling uses the supplied timestamps.
       if (selectedSource?.kind === 'embed' && !Cm) system = system.replace('current position ' + clock(t), 'estimated companion-clock position ' + clock(t) + ' (not player-reported; playback may differ)');
       if (CV) system = system.replace('the last one is right now.', 'the last one is the latest supplied preview; timing is approximate.');
-      if(shots.some(shot=>shot.origin==='用户上传截图')){
-        system=system.replace('the last one is right now.', 'the last one is the most recent user-uploaded screenshot, NOT a live video frame.');
-        system=system.replace('They are about a second apart and show the motion of this moment — read them together, not as separate scenes.', 'These are manually selected still screenshots at approximate positions; do not invent motion or unheard dialogue.');
-      }
-      if(!shots.length&&!CT.length&&!Cy.length)system+='\nIMPORTANT: No reliable scene image, audio, subtitle or user description is available. Never claim to see or hear the clip or invent exact on-screen events. Give at most 1-2 short replies, perhaps ask the user to upload a screenshot or subtitles.';
       system = system.replace('They are about a second apart and show the motion of this moment — read them together, not as separate scenes.', 'Their timestamps show the sampling intervals — read them together, not as separate scenes.');
       return { system, prompt: CG };
     }
@@ -1081,7 +1068,6 @@ const CR=C6['length']>0x1,CD=C6['map'](Cw=>Cw['name']),CL=CP['map'](Cw=>('me'===
         if (a === 'exitFullscreen') await leaveFullscreen();
         if (a === 'manual') { resumeAt = time(); setSource({ kind: 'manual', url: '' }, true); await persist(); }
         if (a === 'subs') $('subsFile').click();
-        if (a === 'shot') $('shotFile').click();
         if (a === 'clearSubs') { cues = []; $('subtitle').textContent = ''; $('subsFile').dataset.name = ''; await persist(); say('字幕已移除。'); }
         if (a === 'sync') { const t = stamp($('manualTime').value); if (!Number.isFinite(t) || t < 0) throw Error('进度格式用 12:34 或 1:12:34。'); if(selectedSource?.kind==='embed')setEstimate(t);frames = []; await persist(); say('已同步到 ' + clock(t)); }
         if (a === 'send') { if ($('input').value.trim()) { say('输入框里还有没发送的话，请先回车发送，再点回复。'); return; } await ask(''); }
@@ -1113,27 +1099,6 @@ const CR=C6['length']>0x1,CD=C6['map'](Cw=>Cw['name']),CL=CP['map'](Cw=>('me'===
         await persist(); if (!alive || load !== loadEpoch) return;
         setSource({ kind: 'local', file: f, key }, resume); if (!resume) $('title').value = f.name.replace(/\.[^.]+$/, ''); await persist(); renderHistory();
       } catch (e) { say(cap(e.message), true); } finally { $('file').value = ''; }
-    });
-    on($('shotFile'), 'change', async () => {
-      const file=$('shotFile').files?.[0],source=selectedSource;
-      try{
-        if(!file)return;
-        if(!['image/jpeg','image/png','image/webp'].includes(file.type))throw Error('请选择 JPG、PNG 或 WebP 截图。');
-        if(file.size>10*1024*1024)throw Error('截图请小于10MB。');
-        const bitmap=await createImageBitmap(file);
-        try{
-          if(!alive||source!==selectedSource)return;
-          const scale=Math.min(1,960/Math.max(bitmap.width,bitmap.height)),canvas=document.createElement('canvas');
-          canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));
-          canvas.getContext('2d').drawImage(bitmap,0,0,canvas.width,canvas.height);
-          const data=canvas.toDataURL('image/jpeg',.72);if(data.length>1600000)throw Error('截图压缩后仍过大，请先裁剪。');
-          const at=time();uploadedShots=[...uploadedShots.filter(x=>x.time<=at&&at-x.time<=180),{time:at,data,origin:'用户上传截图'}].slice(-3);
-          $('vision').checked=true;saveSettings();showShotPreview(uploadedShots);refreshRoom();
-          visionMessage('已载入 '+uploadedShots.length+' 张截图；仅在本次打开插件时保留，不写入观影记录。');
-          say('截图已准备好。点「回复」，TA 就能看到上传的画面，但仍听不到视频声音。',false,'sourceStatus');
-        }finally{bitmap.close?.();}
-      }catch(error){say('载入截图失败：'+cap(error.message||error,140),true,'sourceStatus');}
-      finally{$('shotFile').value='';}
     });
     on($('subsFile'), 'change', async () => {
       const f = $('subsFile').files?.[0], e = epoch; if (!f) return;
@@ -1228,7 +1193,7 @@ const CR=C6['length']>0x1,CD=C6['map'](Cw=>Cw['name']),CL=CP['map'](Cw=>('me'===
     finally { if (alive) { ready = true; for (const el of root.querySelectorAll('button,input,textarea,select')) el.disabled = false; } }
   }
   const plugin = {
-    id: ID, name: '一起看电影', version: '1.6.2',
+    id: ID, name: '一起看电影', version: '1.6.1',
     apps: [{ id: ID + '-room', name: '一起看电影', icon: 'movie', iconImage: '', mount, async unmount(container) { const state = instances.get(container); if (state) await state.dispose(); container.replaceChildren(); } }]
   };
   if (!window.RochePlugin?.register) throw Error('请通过 Roche 插件管理安装此文件。');

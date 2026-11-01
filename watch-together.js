@@ -1,4 +1,4 @@
-/* Roche 一起看电影 1.6.2 · 原生取帧诊断版 */
+/* Roche 一起看电影 1.6.3 · B站 pvdata 时间索引兼容 */
 (() => {
   'use strict';
   const ID = 'tanglan-watch-together';
@@ -599,6 +599,18 @@
       if(!source?.url||!['embed','bili'].includes(source.kind)||source.provider!=='B站')return null;
       try{const u=new URL(source.url),bvid=u.pathname.match(/\/(BV[0-9A-Za-z]{10})(?:\/|$)/)?.[1],page=Number(u.searchParams.get('p')||1);return bvid&&Number.isInteger(page)&&page>0&&page<=1000?{bvid,page}:null;}catch{return null;}
     }
+    // B站在缺少 JSON index 时可提供 pvdata 二进制时间表（big-endian uint16，秒）。
+    function previewTimeIndex(bytes){
+      if(!(bytes instanceof Uint8Array)||bytes.length<2||bytes.length>60000||bytes.length%2)throw Error('B站二进制预览时间索引长度异常。');
+      const result=[];for(let i=0;i<bytes.length;i+=2)result.push((bytes[i]<<8)|bytes[i+1]);
+      if(result[0]!==0||result.some((n,i)=>i>0&&n<result[i-1]))throw Error('B站二进制预览时间索引格式异常。');
+      return result;
+    }
+    function pvdataURL(value){
+      let u;try{u=new URL(String(value).startsWith('//')?'https:'+value:value);}catch{throw Error('B站预览时间表地址无效。');}
+      if(u.protocol!=='https:'||u.username||u.password||u.port||!(u.hostname==='hdslb.com'||u.hostname.endsWith('.hdslb.com'))||!/^\/bfs\/videoshot\/[a-zA-Z0-9/_.-]+\.bin$/.test(u.pathname))throw Error('B站预览时间表地址不受支持。');
+      return u.href;
+    }
     function normalizePreview(raw,direct=false){
       const columns=Number(direct?raw.img_x_len:raw.columns),rows=Number(direct?raw.img_y_len:raw.rows),width=Number(direct?raw.img_x_size:raw.width),height=Number(direct?raw.img_y_size:raw.height);
       if(![columns,rows,width,height].every(Number.isInteger)||columns<1||columns>100||rows<1||rows>100||width<1||height<1||width>2048||height>2048||columns*width*rows*height>24000000)throw Error('预览图尺寸无效。');
@@ -635,16 +647,18 @@
       previewTransport='手机原生 HTTP';
       try{
         const aborted=new Promise((_,reject)=>{onAbort=()=>reject(Error(alive?'手机原生取图超时或已取消。':'插件已关闭。'));controller.signal.addEventListener('abort',onAbort,{once:true});timer=setTimeout(()=>controller.abort(),20000);timers.add(timer);});
-        const response=await Promise.race([http.request({url:target.href,method:'GET',headers:{Accept:options.image?'image/jpeg,image/png,image/webp':'application/json','User-Agent':'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',Referer:'https://www.bilibili.com/'},responseType:options.image?'arraybuffer':'json',connectTimeout:10000,readTimeout:15000,disableRedirects:true}),aborted]);
+        const response=await Promise.race([http.request({url:target.href,method:'GET',headers:{Accept:options.binary?'application/octet-stream':options.image?'image/jpeg,image/png,image/webp':'application/json','User-Agent':'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',Referer:'https://www.bilibili.com/'},responseType:options.image||options.binary?'arraybuffer':'json',connectTimeout:10000,readTimeout:15000,disableRedirects:true}),aborted]);
         const status=Number(response?.status);
         if(status<200||status>=300||!Number.isInteger(status))throw Error('手机原生画面接口返回 HTTP '+(status||'未知')+'。');
-        if(options.image){
+        if(options.image||options.binary){
           const headers=response.headers||{},name=Object.keys(headers).find(k=>k.toLowerCase()==='content-type'),type=String(name?headers[name]:'');
-          if(!/^image\/(jpeg|png|webp)(?:;|$)/i.test(type))throw Error('手机原生接口没有返回图片。');
-          if(typeof response.data!=='string'||response.data.length>11184816)throw Error('手机原生预览图格式无效或超过8MB。');
-          let raw;try{raw=atob(response.data);}catch{throw Error('手机原生图片解码失败。');}
-          if(raw.length>8388608)throw Error('手机原生预览图超过8MB。');
-          return new Blob([Uint8Array.from(raw,c=>c.charCodeAt(0))],{type});
+          if(options.image&&!/^image\/(jpeg|png|webp)(?:;|$)/i.test(type))throw Error('手机原生接口没有返回图片。');
+          const limit=options.binary?80000:11184816;
+          if(typeof response.data!=='string'||response.data.length>limit)throw Error(options.binary?'手机原生时间表格式无效或过大。':'手机原生预览图格式无效或超过8MB。');
+          let raw;try{raw=atob(response.data);}catch{throw Error(options.binary?'手机原生时间表解码失败。':'手机原生图片解码失败。');}
+          if(raw.length>(options.binary?60000:8388608))throw Error(options.binary?'手机原生时间表超过限制。':'手机原生预览图超过8MB。');
+          const bytes=Uint8Array.from(raw,c=>c.charCodeAt(0));
+          return options.binary?bytes:new Blob([bytes],{type});
         }
         let body=response.data;if(typeof body==='string'){try{body=JSON.parse(body);}catch{throw Error('手机原生画面接口未返回JSON。');}}
         if(body?.code!==0||!body.data)throw Error('手机原生画面接口没有有效数据。');return body.data;
@@ -660,6 +674,11 @@
       try{
         const response=await fetch(url,{credentials:'omit',referrerPolicy:'no-referrer',signal:controller.signal,headers:options.headers||{}});
         if(!response.ok)throw Error('画面请求返回 HTTP '+response.status+'。');
+        if(options.binary){
+          if(Number(response.headers.get('Content-Length')||0)>60000)throw Error('预览时间表超过60KB。');
+          const buffer=await response.arrayBuffer();if(buffer.byteLength>60000)throw Error('预览时间表超过60KB。');
+          return new Uint8Array(buffer);
+        }
         if(options.image){
           const type=response.headers.get('Content-Type')||'';if(!/^image\/(jpeg|png|webp)(?:;|$)/i.test(type))throw Error('接口没有返回图片。');
           if(Number(response.headers.get('Content-Length')||0)>8388608)throw Error('预览拼图超过8MB。');
@@ -675,7 +694,15 @@
       try{
         const pages=await previewFetch('https://api.bilibili.com/x/player/pagelist?bvid='+encodeURIComponent(id.bvid));if(!valid())return null;
         const cid=Number(pages?.[id.page-1]?.cid);if(!Number.isSafeInteger(cid)||cid<=0)throw Error('没有找到分P。');
-        data=normalizePreview(await previewFetch('https://api.bilibili.com/x/player/videoshot?bvid='+encodeURIComponent(id.bvid)+'&cid='+cid+'&index=1'),true);
+        let shot=await previewFetch('https://api.bilibili.com/x/player/videoshot?bvid='+encodeURIComponent(id.bvid)+'&cid='+cid+'&index=1');
+        // index may be omitted even when the sprite sheets exist; use B站原生 pvdata as fallback.
+        if(!Array.isArray(shot.index)||!shot.index.length){
+          if(!shot.pvdata)throw Error('这个视频没有提供 JSON index 或 pvdata 预览时间表。');
+          const bytes=await previewFetch(pvdataURL(shot.pvdata),{binary:true});
+          if(!valid())return null;
+          shot={...shot,index:previewTimeIndex(bytes)};
+        }
+        data=normalizePreview(shot,true);
       }catch(e){error=e;directTransport=previewTransport;}
       if(!valid())return null;
       if(!data){
@@ -1202,7 +1229,7 @@ const CR=C6['length']>0x1,CD=C6['map'](Cw=>Cw['name']),CL=CP['map'](Cw=>('me'===
     finally { if (alive) { ready = true; for (const el of root.querySelectorAll('button,input,textarea,select')) el.disabled = false; } }
   }
   const plugin = {
-    id: ID, name: '一起看电影', version: '1.6.2',
+    id: ID, name: '一起看电影', version: '1.6.3',
     apps: [{ id: ID + '-room', name: '一起看电影', icon: 'movie', iconImage: '', mount, async unmount(container) { const state = instances.get(container); if (state) await state.dispose(); container.replaceChildren(); } }]
   };
   if (!window.RochePlugin?.register) throw Error('请通过 Roche 插件管理安装此文件。');

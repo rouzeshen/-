@@ -1,4 +1,4 @@
-/* Roche 一起看电影 1.6.6 · 观影记忆时间范围 */
+/* Roche 一起看电影 1.6.7 · 完整观影时间范围 */
 (() => {
   'use strict';
   const ID = 'tanglan-watch-together';
@@ -965,7 +965,7 @@ const CR=C6['length']>0x1,CD=C6['map'](Cw=>Cw['name']),CL=CP['map'](Cw=>('me'===
       records.forEach(r => {
         const row = make('div', null, 'history'), meta = make('div', null, 'grow'); meta.append(make('strong', r.title), make('small', `${clock(r.time)} · ${(r.characterNames || []).join('、')} · ${new Date(r.updatedAt).toLocaleDateString()}`));
         const resume = make('button', '续看'), del = make('button', '删除');
-        resume.onclick = () => restore(r).catch(e => say(cap(e.message), true)); del.onclick = async () => { if (!await confirm('删除这条观影记录？')) return; if (r.id === currentId) { cancel(); aiRequests = 0; aiCountPartial = false; savedTicket = ''; remembered = {}; memoryDrafts = {}; memoryReceipts = {}; memorySummaryToken++; currentId = uid(); selectedSource = null; stopMedia(); messages = []; cues = []; notes = []; $('title').value = ''; $('scene').value = ''; $('subtitle').textContent = ''; $('ticket').replaceChildren(); video.hidden = $('embed').hidden = true; $('empty').hidden = false; $('manualBox').hidden = true; $('mode').textContent = '还没开场'; renderChat(); } records = records.filter(x => x.id !== r.id); await write('records-v1', records); renderHistory(); };
+        resume.onclick = () => restore(r).catch(e => say(cap(e.message), true)); del.onclick = async () => { if (!await confirm('删除这条观影记录？')) return; if (r.id === currentId) { cancel(); aiRequests = 0; aiCountPartial = false; savedTicket = ''; remembered = {}; memoryDrafts = {}; memoryReceipts = {}; memorySummaryToken++; currentId = uid(); viewingStartedAt = 0; viewingEndedAt = 0; selectedSource = null; stopMedia(); messages = []; cues = []; notes = []; $('title').value = ''; $('scene').value = ''; $('subtitle').textContent = ''; $('ticket').replaceChildren(); video.hidden = $('embed').hidden = true; $('empty').hidden = false; $('manualBox').hidden = true; $('mode').textContent = '还没开场'; renderChat(); } records = records.filter(x => x.id !== r.id); await write('records-v1', records); renderHistory(); };
         row.append(meta, resume, del); $('history').append(row);
       });
     }
@@ -1103,7 +1103,7 @@ const CR=C6['length']>0x1,CD=C6['map'](Cw=>Cw['name']),CL=CP['map'](Cw=>('me'===
           const source=selectedSource;action('testVision').disabled=true;try{await collectShots(time(),()=>alive&&selectedSource===source);}finally{if(alive)action('testVision').disabled=false;}
         }
         if (a === 'setup') { await leaveFullscreen(); showSetup('peopleSetup'); }
-        if (a === 'enterRoom') { if (!selected().length) { say('先选一位陪看角色。', true); showSetup('peopleSetup'); return; } if (!selectedSource) { if (!$('title').value.trim()) { say('先填写影片名称或选一部影片。',true); showSetup('sourceSetup'); return; } setSource({ kind: 'manual', url: '' }, true); } else showRoom(); }
+        if (a === 'enterRoom') { if (!selected().length) { say('先选一位陪看角色。', true); showSetup('peopleSetup'); return; } if (!selectedSource) { if (!$('title').value.trim()) { say('先填写影片名称或选一部影片。',true); showSetup('sourceSetup'); return; } if (!viewingStartedAt) { viewingStartedAt = Date.now(); viewingEndedAt = 0; } setSource({ kind: 'manual', url: '' }, true); } else showRoom(); }
         if (a === 'roomNote') { showSetup('scene'); }
         if (a === 'roomEnd') { if (!viewingEndedAt) viewingEndedAt = Date.now(); await leaveFullscreen(); if (busy) cancel(); pauseEstimate(); video.pause(); if (selectedSource?.kind === 'embed') $('embed').removeAttribute('src'); $('auto').value = 'off'; saveSettings(); await persist(); showSetup('ticket'); action('ticket').click(); }
         if (a === 'back') { await persist(); await roche.ui.closeApp(); }
@@ -1253,7 +1253,7 @@ const CR=C6['length']>0x1,CD=C6['map'](Cw=>Cw['name']),CL=CP['map'](Cw=>('me'===
     finally { if (alive) { ready = true; for (const el of root.querySelectorAll('button,input,textarea,select')) el.disabled = false; } }
   }
   const plugin = {
-    id: ID, name: '一起看电影', version: '1.6.6',
+    id: ID, name: '一起看电影', version: '1.6.7',
     apps: [{ id: ID + '-room', name: '一起看电影', icon: 'movie', iconImage: '', mount, async unmount(container) { const state = instances.get(container); if (state) await state.dispose(); container.replaceChildren(); } }]
   };
   if (!window.RochePlugin?.register) throw Error('请通过 Roche 插件管理安装此文件。');
